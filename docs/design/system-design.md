@@ -108,7 +108,7 @@ OpenUMI is a wireless data collection system for robot imitation learning. It ca
 - **Runtime estimate**: ~18-25 minutes at ~270-350mA average draw at 3.3V rail (WiFi + camera + sensors); peaks to ~400mA during WiFi TX bursts
 - **Connector**: 2-pin JST-PH for battery
 
-**Why AP2112K over AP2112K**: ESP32-S3 peak current during WiFi TX bursts can reach 350-450mA (MCU + camera + sensors). AP2112K is rated 500mA with no headroom; AP2112K at 600mA provides sufficient margin to avoid brownout during transient spikes.
+**Why AP2112K over ME6211**: ESP32-S3 peak current during WiFi TX bursts can reach 350-450mA (MCU + camera + sensors). ME6211 is rated 500mA with no headroom; AP2112K at 600mA provides sufficient margin to avoid brownout during transient spikes.
 
 #### 2.1.6 Indicators
 
@@ -212,7 +212,7 @@ NVS Configuration:
   device_role    = LEFT | RIGHT | HEAD
   wifi_ssid      = "<phone hotspot SSID>"
   wifi_pass       = "<phone hotspot password>"
-  mdns_name      = "left.openumi" | "right.openumi" | "head.openumi"
+  device_name    = "openumi-left" | "openumi-right" | "openumi-head"
   camera_res     = VGA | QVGA          (640x480 | 320x240, default VGA)
   camera_fps     = 25 | 15 | 30        (default 25)
   jpeg_quality   = 50-90               (default 70)
@@ -288,10 +288,9 @@ camera_config_t config = {
    - Hardware timer (microsecond precision)
    - ADC → battery voltage
 3. Connect to WiFi hotspot (retry with LED blink)
-4. Start mDNS broadcast on connect
-5. Send UDP "device online" heartbeat every 1 second
-6. Wait for phone TCP connection (video channel)
-7. Ready → LED solid
+4. Start UDP heartbeat broadcast every 1 second
+5. Wait for phone TCP connection (video channel)
+6. Ready → LED solid
 
 ### 3.6 Device State Machine
 
@@ -326,7 +325,7 @@ stateDiagram-v2
 |-----------|-------------|-----------|
 | `sensor_driver` | BMI270 + AS5600 on I2C bus 1, timer-notified task (not ISR), retry with bus reset on NAK/timeout | I2C, GPIO |
 | `camera_driver` | OV2640 DVP capture, JPEG output | DVP |
-| `net_manager` | WiFi STA connection, mDNS, reconnect | WiFi |
+| `net_manager` | WiFi STA connection, UDP heartbeat broadcast, BLE advertisement, reconnect | WiFi, BLE |
 | `data_streamer` | TCP video send (frame-drop if buffer full) + UDP sensor send | Socket |
 | `sync_protocol` | Clock sync request/response handler | UDP |
 | `power_manager` | Battery ADC, charge detection, low-battery alert | ADC, GPIO |
@@ -679,7 +678,7 @@ Users can access session directories via Finder (macOS) or Files app (iOS).
 
 ### 6.1 Three-Stage Conversion Pipeline
 
-The pipeline converts raw phone data to LeRobot v3.0 format via an intermediate UMI-compatible zarr, reusing the existing LeRobot UMI conversion script.
+The pipeline converts raw phone data to LeRobot v3.0 format via an intermediate UMI-compatible zarr, then uses the `LeRobotDataset` API to produce the final dataset.
 
 ```mermaid
 graph TD
@@ -907,15 +906,15 @@ gantt
 **Goal**: Validate core electronics and firmware on off-the-shelf dev boards before committing to custom PCB.
 
 1. Assemble dev kit: ESP32-S3 dev board + OV2640 camera module + BMI270 breakout + AS5600 breakout
-2. Firmware prototype: WiFi JPEG streaming (640x480 @ 30fps) + IMU 200Hz + encoder reading
+2. Firmware prototype: WiFi JPEG streaming (640x480 @ 25fps) + IMU 200Hz + encoder reading
 3. Validate single-device WiFi throughput and stability
-4. **Validation criteria**: Stable 30fps JPEG + 200Hz IMU streaming over WiFi for 15+ minutes
+4. **Validation criteria**: Stable 25fps JPEG + 200Hz IMU streaming over WiFi for 15+ minutes
 
 ### Phase 3: iOS App Single-Device Validation
 
 **Goal**: Complete iOS app connected to one dev board.
 
-1. Bonjour device discovery + TCP/UDP connection
+1. UDP heartbeat device discovery + TCP/UDP connection
 2. Live JPEG video preview
 3. Recording control (countdown, timed stop)
 4. Data storage in CSV + JPEG format (matching design spec)
@@ -925,7 +924,7 @@ gantt
 
 **Goal**: End-to-end from raw capture to LeRobot dataset.
 
-1. Run ORB-SLAM3 on captured JPEG + IMU data → 6-DoF trajectory
+1. Run VINS-Fusion on captured JPEG + IMU data → 6-DoF trajectory
 2. Encoder angle → gripper width mapping
 3. Assemble UMI-compatible zarr
 4. Convert zarr → LeRobot v3.0 format
@@ -937,7 +936,7 @@ gantt
 **Goal**: Miniaturized PCB matching dev board functionality.
 
 1. Schematic design in KiCad (ESP32-S3 + BMI270 + AS5600 + TP4056 + OV2640 FPC)
-2. PCB layout (~25x30mm, antenna keepout, I2C routing)
+2. PCB layout (28x32mm, 4-layer, antenna overhang, dual I2C bus routing)
 3. DRC + manufacturing rule check for JLCPCB
 4. Export Gerber + BOM + CPL, order from JLCPCB (PCB + SMT assembly)
 5. **Validation criteria**: Assembled PCB boots, all sensors respond, WiFi connects
@@ -960,7 +959,7 @@ gantt
 2. Flash firmware, configure NVS
 3. Run same test as Phase 2-3 with assembled device
 4. Compare data quality (IMU noise, JPEG quality, WiFi stability) against dev board baseline
-5. **Validation criteria**: No degradation vs dev board; battery lasts 12+ minutes
+5. **Validation criteria**: No degradation vs dev board; battery lasts 18+ minutes
 
 ### Phase 8: Three-Device Joint Validation
 
@@ -1004,14 +1003,12 @@ gantt
 | OV2640 sustainable framerate <25fps under concurrent WiFi | Medium | Medium | Default 25fps conservative; 30fps profile for ideal conditions only |
 | OV2640 rolling shutter degrades VIO during fast motion | Medium | Medium | VINS-Fusion rolling shutter model compensates; control exposure <5ms with bright lighting; expected 8-15mm accuracy |
 | OV2640 fixed-focus blur at close range (<15cm) | Medium | Medium | Select adjustable-focus OV2640 module with manual focus ring; verify minimum focus distance before ordering |
-| iOS background suspension during recording | Medium | High | Silent audio session + beginBackgroundTask; user warning |
-| mDNS broken on iPhone hotspot (iOS 17+) | ~~Low~~ | ~~Medium~~ | ~~Resolved: mDNS removed as primary.~~ UDP heartbeat broadcast is now primary discovery; BLE fallback |
+| iOS background suspension during recording | Medium | High | `isIdleTimerDisabled` (screen on) + `BGContinuedProcessingTask`; user warned to keep app in foreground |
 | ESP32-S3 dual-core task contention | Medium | Low | Priority-based scheduling; sensor task at highest priority |
 | Battery life too short (<10 min) with 110mAh | Medium | Medium | Optimize WiFi power; reduce camera framerate during idle; consider larger cell |
 | LDO brownout during WiFi TX spikes | Medium | Low | AP2112K (600mA) selected over ME6211 (500mA); add bulk capacitance |
 | TP4056 overcharging small cell | High | Low | PROG resistor = 10kΩ limits charge to ~100mA (~1C for 110mAh); verified in schematic |
 | **iOS 26.4 hotspot IPv4 regression** | **Critical** | **Medium** | ESP32 uses IPv4; iOS 26.4 breaks IPv4 on hotspot WiFi clients. Monitor Apple bug fix; test on latest iOS; long-term: evaluate ESP-IDF IPv6 support |
-| iOS 26 background execution tightening | High | High | ~~Silent audio trick removed.~~ Use `isIdleTimerDisabled` (screen on) + `BGContinuedProcessingTask`. User warned to keep app in foreground |
 | Multicast entitlement required for UDP broadcast | Medium | Low | Must request `com.apple.developer.networking.multicast` from Apple; send dummy packet to trigger permission |
 | 3D-printed enclosure too fragile | Low | Low | Test with MJF nylon; iterate design |
 | OV2640 zero-sized frame bug in esp32-camera | Medium | Low | Pin specific esp-idf + esp32-camera version; thorough testing in Phase 2 |

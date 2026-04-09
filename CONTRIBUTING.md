@@ -17,7 +17,7 @@ Thank you for your interest in contributing to OpenUMI! This document provides g
 - **iOS App**: Xcode 15+, iOS 16.0+ device
 - **PCB Design**: KiCad 8
 - **Mechanical Design**: FreeCAD 0.21+
-- **Data Processing**: Python 3.10+, ORB-SLAM3
+- **Data Processing**: Python 3.10+, VINS-Fusion
 
 ### MCP Tools (Optional)
 

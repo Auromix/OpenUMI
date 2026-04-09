@@ -54,7 +54,7 @@ The system consists of three wireless devices and a phone app:
 - **Right Hand Device** — Same as left hand
 - **Head Device** — Mounted on the head, captures a third-person view with IMU
 
-All devices stream data in real-time over WiFi to an iOS app. After collection, a PC-side pipeline runs VIO (ORB-SLAM3) to recover 6-DoF poses and converts the data to LeRobot v3.0 format.
+All devices stream data in real-time over WiFi to an iOS app. After collection, a PC-side pipeline runs VIO (VINS-Fusion with rolling shutter support) to recover 6-DoF poses and converts the data to LeRobot v3.0 format.
 
 ## Hardware
 
