@@ -160,13 +160,17 @@ The hand device consists of:
 
 #### 2.3.3 Schematic Blocks
 
-```
-USB Type-C → TP4056 → Battery → ME6211 (3.3V) → ESP32-S3
-                                                    ├── I2C → BMI270
-                                                    ├── I2C → AS5600
-                                                    ├── DVP → OV2640 (FPC)
-                                                    ├── GPIO → LED × 2
-                                                    └── ADC → Battery voltage divider
+```mermaid
+graph LR
+    USB["USB Type-C"] --> TP["TP4056<br/>Charge IC"]
+    TP --> BAT["LiPo<br/>Battery"]
+    BAT --> LDO["ME6211<br/>3.3V LDO"]
+    LDO --> ESP["ESP32-S3"]
+    ESP -- "I2C" --> IMU["BMI270"]
+    ESP -- "I2C" --> ENC["AS5600"]
+    ESP -- "DVP" --> CAM["OV2640<br/>(FPC)"]
+    ESP -- "GPIO" --> LED["LED × 2"]
+    ESP -- "ADC" --> VDIV["Battery<br/>Voltage Divider"]
 ```
 
 #### 2.3.4 Design Tool
@@ -210,24 +214,21 @@ Initial NVS configuration is written via USB serial during first setup.
 
 ### 3.3 Task Architecture (FreeRTOS)
 
-```
-Core 0                              Core 1
-────────────────────────             ────────────────────────
-WiFi protocol stack (system)         camera_task
-                                       - DVP frame capture
-sensor_task (HIGHEST priority)         - JPEG buffer management
-  - BMI270 DATA_READY interrupt        - Write to send queue
-  - Read IMU via I2C                   - Priority: HIGH
-  - Read AS5600 via I2C (same ISR)
-  - Hardware timestamp (us)          video_send_task
-  - Write to send queue               - Dequeue JPEG frames
-  - 200Hz cycle                        - TCP send to phone
-                                       - Flow control / reconnect
-net_ctrl_task                          - Priority: MEDIUM
-  - UDP sensor data send
-  - UDP control command receive
-  - Clock sync response
-  - Priority: MEDIUM
+```mermaid
+graph TB
+    subgraph Core0["Core 0"]
+        WIFI["WiFi Protocol Stack<br/>(system, pinned)"]
+        SENSOR["sensor_task<br/>⚡ HIGHEST priority<br/>─────────────<br/>BMI270 DATA_READY ISR<br/>Read IMU via I2C<br/>Read AS5600 via I2C<br/>Hardware timestamp (μs)<br/>Write to send queue<br/>200Hz cycle"]
+        NET["net_ctrl_task<br/>MEDIUM priority<br/>─────────────<br/>UDP sensor data send<br/>UDP control cmd receive<br/>Clock sync response"]
+    end
+
+    subgraph Core1["Core 1"]
+        CAM["camera_task<br/>HIGH priority<br/>─────────────<br/>DVP frame capture<br/>JPEG buffer mgmt<br/>Write to send queue"]
+        VID["video_send_task<br/>MEDIUM priority<br/>─────────────<br/>Dequeue JPEG frames<br/>TCP send to phone<br/>Flow control / reconnect"]
+    end
+
+    SENSOR --> NET
+    CAM --> VID
 ```
 
 ### 3.4 Boot Sequence
@@ -246,29 +247,29 @@ net_ctrl_task                          - Priority: MEDIUM
 
 ### 3.5 Device State Machine
 
-```
-[IDLE] ──SYNC_REQ──→ [SYNCING]
-                        │
-                   Return local clock
-                        │
-                   Receive START
-                        │
-                        ▼
-                   [RECORDING]
-                    ├── Sensor sampling + send (200Hz)
-                    ├── Camera frame capture + send
-                    ├── Respond to SYNC requests (drift correction)
-                    └── LED blink red
-                        │
-                   Receive STOP
-                        │
-                        ▼
-                   [FLUSHING]
-                    ├── Drain send queues
-                    └── Send END_OF_STREAM marker
-                        │
-                        ▼
-                   [IDLE] → LED solid
+```mermaid
+stateDiagram-v2
+    [*] --> IDLE : Power on + WiFi connected
+    IDLE --> SYNCING : SYNC_REQ received
+    SYNCING --> RECORDING : START received
+
+    state RECORDING {
+        [*] --> Sampling
+        Sampling : Sensor 200Hz + Camera capture
+        Sampling : TCP/UDP streaming
+        Sampling : Respond to SYNC (drift correction)
+        Sampling : LED blink red
+    }
+
+    RECORDING --> FLUSHING : STOP received
+
+    state FLUSHING {
+        [*] --> Draining
+        Draining : Drain send queues
+        Draining : Send END_OF_STREAM marker
+    }
+
+    FLUSHING --> IDLE : Flush complete (LED solid)
 ```
 
 ### 3.6 Firmware Components
@@ -290,11 +291,19 @@ net_ctrl_task                          - Priority: MEDIUM
 
 ### 4.1 Network Topology
 
-```
-iPhone Personal Hotspot (172.20.10.1)
-  ├── Left Hand ESP32  (172.20.10.x)  ← WiFi STA
-  ├── Right Hand ESP32 (172.20.10.x)  ← WiFi STA
-  └── Head ESP32       (172.20.10.x)  ← WiFi STA
+```mermaid
+graph TD
+    PHONE["📱 iPhone Personal Hotspot<br/>172.20.10.1"]
+    LEFT["🤚 Left Hand ESP32<br/>172.20.10.x<br/>WiFi STA"]
+    RIGHT["✋ Right Hand ESP32<br/>172.20.10.x<br/>WiFi STA"]
+    HEAD["👤 Head ESP32<br/>172.20.10.x<br/>WiFi STA"]
+
+    LEFT -- "TCP :19801 (video)<br/>UDP :19802 (sensor)" --> PHONE
+    RIGHT -- "TCP :19801 (video)<br/>UDP :19802 (sensor)" --> PHONE
+    HEAD -- "TCP :19801 (video)<br/>UDP :19802 (sensor)" --> PHONE
+    PHONE -- "UDP :19803 broadcast<br/>(START/STOP/SYNC)" --> LEFT
+    PHONE -- "UDP :19803 broadcast" --> RIGHT
+    PHONE -- "UDP :19803 broadcast" --> HEAD
 ```
 
 - Phone acts as WiFi hotspot
@@ -384,33 +393,24 @@ Phone → devices broadcast. Devices → phone unicast responses.
 
 Three-phase protocol achieving <500 us accuracy across all devices:
 
-#### Phase 1: Startup Calibration (before recording)
+```mermaid
+sequenceDiagram
+    participant Phone
+    participant Device
 
-```
-Phone sends SYNC_REQ with phone_time_t1
-Device receives at device_time_t2, responds SYNC_RESP with device_time_t2
-Phone receives at phone_time_t3
+    Note over Phone,Device: Phase 1: Startup Calibration (×10, take median)
+    Phone->>Device: SYNC_REQ (phone_time_t1)
+    Device->>Phone: SYNC_RESP (device_time_t2)
+    Note over Phone: RTT = t3 - t1<br/>offset = t2 - (t1 + RTT/2)
 
-RTT = t3 - t1
-offset_i = t2 - (t1 + RTT/2)
+    Note over Phone,Device: Phase 2: Synchronized Start
+    Phone->>Device: START (broadcast, absolute timestamp)
+    Note over Device: Begin recording<br/>Local hardware timer (μs) free-running
 
-Repeat 10 times, take median offset for robustness.
-```
-
-#### Phase 2: Synchronized Start (recording begins)
-
-```
-Phone broadcasts START with absolute start timestamp.
-All devices receive simultaneously and begin recording.
-Each device uses its local hardware timer (us precision) for all subsequent timestamps.
-```
-
-#### Phase 3: Periodic Drift Correction (during recording)
-
-```
-Every 10 seconds, phone sends SYNC_REQ to each device.
-Updates offset_i to compensate crystal drift.
-ESP32 crystal drift: ~20 ppm → 200 us drift per 10 seconds → corrected to <100 us.
+    Note over Phone,Device: Phase 3: Drift Correction (every 10s)
+    Phone->>Device: SYNC_REQ
+    Device->>Phone: SYNC_RESP
+    Note over Phone: Update offset<br/>ESP32 drift ~20ppm → corrected <100μs
 ```
 
 ### 4.5 Intra-Device Sensor Synchronization
@@ -441,31 +441,33 @@ Video frames are timestamped when the DVP VSYNC interrupt fires, then correlated
 
 ### 5.2 App Architecture
 
-```
-┌─────────────────────────────────────────┐
-│                SwiftUI View             │
-│  ┌──────────┐ ┌──────────┐ ┌────────┐ │
-│  │VideoView │ │VideoView │ │VideoView│ │
-│  │  (left)  │ │ (right)  │ │ (head) │ │
-│  └────┬─────┘ └────┬─────┘ └───┬────┘ │
-│       └─────────────┼───────────┘      │
-│              RecordingView              │
-│         (controls + sensor status)      │
-└──────────────────┬──────────────────────┘
-                   │
-         ┌─────────▼─────────┐
-         │  RecordingSession │  ← State machine
-         │  (ObservableObject)│
-         └────────┬──────────┘
-                  │
-    ┌─────────────┼─────────────┐
-    │             │             │
-┌───▼────┐  ┌────▼────┐  ┌────▼────┐
-│Device  │  │Device   │  │Device   │
-│Manager │  │Manager  │  │Manager  │
-│(left)  │  │(right)  │  │(head)   │
-└───┬────┘  └────┬────┘  └────┬────┘
-    │TCP+UDP     │TCP+UDP     │TCP+UDP
+```mermaid
+graph TD
+    subgraph UI["SwiftUI View Layer"]
+        VL["VideoView<br/>(left)"]
+        VR["VideoView<br/>(right)"]
+        VH["VideoView<br/>(head)"]
+        RV["RecordingView<br/>Controls + Sensor Status"]
+    end
+
+    RS["RecordingSession<br/>ObservableObject<br/>State Machine"]
+
+    subgraph DM["Device Managers"]
+        DML["DeviceManager<br/>(left)"]
+        DMR["DeviceManager<br/>(right)"]
+        DMH["DeviceManager<br/>(head)"]
+    end
+
+    VL --> RS
+    VR --> RS
+    VH --> RS
+    RV --> RS
+    RS --> DML
+    RS --> DMR
+    RS --> DMH
+    DML -- "TCP + UDP" --> ESP1["ESP32 Left"]
+    DMR -- "TCP + UDP" --> ESP2["ESP32 Right"]
+    DMH -- "TCP + UDP" --> ESP3["ESP32 Head"]
 ```
 
 ### 5.3 Modules
@@ -605,45 +607,25 @@ Users can access session directories via Finder (macOS) or Files app (iOS).
 
 The pipeline converts raw phone data to LeRobot v3.0 format via an intermediate UMI-compatible zarr, reusing the existing LeRobot UMI conversion script.
 
-```
-Stage 1: Raw Session (from phone)
-  openumi_data/session_xxx/
-  ├── {device}/camera/*.jpg       JPEG frames
-  ├── {device}/timestamps.csv     Frame timestamps
-  ├── {device}/imu.csv            200Hz IMU
-  ├── {device}/encoder.csv        200Hz encoder (hands only)
-  └── metadata.json
-         │
-         │  openumi_process.py (Step 1-5)
-         ▼
-Stage 2: UMI-Compatible Zarr
-  session_xxx.zarr/
-  ├── data/robot0_eef_pos              (T, 3) float32   Left hand position
-  ├── data/robot0_eef_rot_axis_angle   (T, 3) float32   Left hand rotation
-  ├── data/robot0_gripper_width        (T, 1) float32   Left gripper (meters)
-  ├── data/robot1_eef_pos              (T, 3) float32   Right hand position
-  ├── data/robot1_eef_rot_axis_angle   (T, 3) float32   Right hand rotation
-  ├── data/robot1_gripper_width        (T, 1) float32   Right gripper (meters)
-  ├── data/camera0_rgb                 (T, H, W, 3)     Left hand camera
-  ├── data/camera1_rgb                 (T, H, W, 3)     Right hand camera
-  ├── data/camera2_rgb                 (T, H, W, 3)     Head camera
-  └── meta/episode_ends                (N,)
-         │
-         │  openumi_to_lerobot.py (adapted umi_zarr_format.py)
-         ▼
-Stage 3: LeRobot v3.0 Dataset
-  openumi_dataset/
-  ├── meta/
-  │   ├── info.json                    codebase_version: "v3.0"
-  │   ├── stats.json                   Normalization stats
-  │   ├── tasks.parquet                Task descriptions
-  │   └── episodes/chunk-000/...       Episode metadata
-  ├── data/
-  │   └── chunk-000/file-000.parquet   Frame-level data
-  └── videos/
-      ├── observation.images.left_wrist/chunk-000/file-000.mp4
-      ├── observation.images.right_wrist/chunk-000/file-000.mp4
-      └── observation.images.head/chunk-000/file-000.mp4
+```mermaid
+graph TD
+    subgraph S1["Stage 1: Raw Session (from phone)"]
+        RAW["openumi_data/session_xxx/<br/>├── {device}/camera/*.jpg<br/>├── {device}/timestamps.csv<br/>├── {device}/imu.csv<br/>├── {device}/encoder.csv<br/>└── metadata.json"]
+    end
+
+    PROC["openumi_process.py<br/>(Steps 1-5)"]
+
+    subgraph S2["Stage 2: UMI-Compatible Zarr"]
+        ZARR["session_xxx.zarr/<br/>├── data/robot0_eef_pos (T,3)<br/>├── data/robot0_eef_rot_axis_angle (T,3)<br/>├── data/robot0_gripper_width (T,1)<br/>├── data/robot1_* (right hand)<br/>├── data/camera0/1/2_rgb (T,H,W,3)<br/>└── meta/episode_ends (N,)"]
+    end
+
+    CONV["openumi_to_lerobot.py<br/>(adapted umi_zarr_format.py)"]
+
+    subgraph S3["Stage 3: LeRobot v3.0 Dataset"]
+        LR["openumi_dataset/<br/>├── meta/ (info.json, stats, tasks, episodes)<br/>├── data/ (chunk Parquet files)<br/>└── videos/<br/>    ├── observation.images.left_wrist/*.mp4<br/>    ├── observation.images.right_wrist/*.mp4<br/>    └── observation.images.head/*.mp4"]
+    end
+
+    RAW --> PROC --> ZARR --> CONV --> LR
 ```
 
 ### 6.2 Processing Steps (openumi_process.py)

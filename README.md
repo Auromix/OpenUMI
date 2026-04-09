@@ -22,26 +22,30 @@ OpenUMI is a portable, low-cost data collection toolkit designed for collecting 
 
 ## Architecture
 
-```
- Left Hand          Right Hand          Head
- ┌──────────┐      ┌──────────┐      ┌──────────┐
- │ESP32-S3  │      │ESP32-S3  │      │ESP32-S3  │
- │OV2640    │      │OV2640    │      │OV2640    │
- │BMI270    │      │BMI270    │      │BMI270    │
- │AS5600    │      │AS5600    │      │(no enc.) │
- │LiPo Batt │      │LiPo Batt │      │LiPo Batt │
- └────┬─────┘      └────┬─────┘      └────┬─────┘
-      │ WiFi             │ WiFi             │ WiFi
-      └──────────────────┼──────────────────┘
-                         │
-                  ┌──────▼──────┐
-                  │  iPhone App │         ┌────────────┐
-                  │  (SwiftUI)  │────────→│ PC Offline │
-                  └─────────────┘         │ VIO + Conv.│
-                   Video preview          └─────┬──────┘
-                   Sensor status                │
-                   Recording ctrl          LeRobot v3.0
-                   Local storage              Dataset
+```mermaid
+graph TD
+    subgraph Devices["Wireless Devices"]
+        L["🤚 Left Hand<br/>ESP32-S3 + OV2640<br/>BMI270 + AS5600"]
+        R["✋ Right Hand<br/>ESP32-S3 + OV2640<br/>BMI270 + AS5600"]
+        H["👤 Head<br/>ESP32-S3 + OV2640<br/>BMI270 (no encoder)"]
+    end
+
+    subgraph Phone["iPhone App (SwiftUI)"]
+        P["Video Preview<br/>Sensor Status<br/>Recording Control<br/>Local Storage"]
+    end
+
+    subgraph PC["PC Offline Processing"]
+        VIO["ORB-SLAM3 VIO"]
+        CONV["UMI Zarr Assembly"]
+        LR["LeRobot v3.0<br/>Dataset"]
+    end
+
+    L -- "WiFi: TCP video<br/>UDP sensor" --> P
+    R -- "WiFi: TCP video<br/>UDP sensor" --> P
+    H -- "WiFi: TCP video<br/>UDP sensor" --> P
+    P -- "Export raw data" --> VIO
+    VIO --> CONV
+    CONV --> LR
 ```
 
 The system consists of three wireless devices and a phone app:
@@ -99,13 +103,34 @@ Single firmware for all three devices, role configured via NVS:
 
 ## Data Pipeline
 
-```
-Phone (raw)                    PC (processed)                  Training
-─────────────                  ──────────────                  ────────
-JPEG frames ─┐                 ┌─ ORB-SLAM3 ──→ 6-DoF pose
-IMU CSV ─────┤ ──export──→     ├─ Encoder    ──→ gripper width ──→ LeRobot v3.0
-Encoder CSV ─┤                 └─ Assemble   ──→ UMI zarr     ──→ Diffusion Policy
-metadata.json┘                                                     ACT, etc.
+```mermaid
+graph LR
+    subgraph Phone["📱 Phone (Raw)"]
+        JPEG["JPEG Frames"]
+        IMU["IMU CSV"]
+        ENC["Encoder CSV"]
+        META["metadata.json"]
+    end
+
+    subgraph PC["💻 PC (Processed)"]
+        SLAM["ORB-SLAM3<br/>VIO"]
+        GRIP["Encoder →<br/>Gripper Width"]
+        ZARR["UMI Zarr"]
+    end
+
+    subgraph Train["🤖 Training"]
+        LR["LeRobot v3.0"]
+        DP["Diffusion Policy<br/>ACT, etc."]
+    end
+
+    JPEG --> SLAM
+    IMU --> SLAM
+    SLAM -- "6-DoF pose" --> ZARR
+    ENC --> GRIP
+    GRIP -- "gripper width" --> ZARR
+    META --> ZARR
+    ZARR --> LR
+    LR --> DP
 ```
 
 ### Raw Data Format
