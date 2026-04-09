@@ -25,7 +25,7 @@ A single universal PCB serves all three devices (left hand, right hand, head). T
 | Component | Model | Package | Interface | Key Specs |
 |-----------|-------|---------|-----------|-----------|
 | MCU | ESP32-S3-WROOM-1-N16R8 | Module 18x25.5mm | — | 240MHz dual-core, 16MB Flash, 8MB PSRAM, WiFi + BLE |
-| Camera | OV2640 (wide-angle 120°+, adjustable focus) | FPC 24-pin | DVP 8-bit | 640x480 JPEG @ 25fps, built-in ISP |
+| Camera | OV2640 (wide-angle 120°+, adjustable focus) | FPC 24-pin | DVP 8-bit | 640x480 JPEG @ 30fps, built-in ISP |
 | IMU | BMI270 | LGA 2.5x3.0mm | I2C (bus 1) | 6-axis, 200Hz, DATA_READY interrupt |
 | Encoder | AS5600 | SOIC-8 | I2C (bus 1) | 12-bit, contactless magnetic, 0.088° resolution |
 | Charge IC | TP4056 | SOP-8 | — | Li-ion charger, PROG=10kΩ → 100mA charge current |

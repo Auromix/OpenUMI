@@ -29,7 +29,7 @@ graph TD
 | 2 | camera/*.jpg + imu.csv (per hand) | camera_trajectory.csv | VINS-Fusion visual-inertial odometry (rolling shutter mode) → 6-DoF camera poses |
 | 3 | camera_trajectory.csv + calibration | eef_pos + eef_rot | Hand-eye calibration: camera pose → TCP (tool center point) pose |
 | 4 | encoder.csv + mechanical params | gripper_width (meters) | Encoder angle → gripper width via mechanical geometry |
-| 5 | All above | session_xxx.zarr | Resample all streams to video framerate (25fps), assemble UMI zarr |
+| 5 | All above | session_xxx.zarr | Resample all streams to video framerate (30fps), assemble UMI zarr |
 
 **Step 2 detail — VINS-Fusion VIO:**
 
@@ -80,7 +80,7 @@ dataset.push_to_hub()
 {
   "codebase_version": "v3.0",
   "robot_type": "openumi",
-  "fps": 25,
+  "fps": 30,
   "features": {
     "observation.state": {
       "dtype": "float32",

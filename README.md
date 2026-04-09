@@ -63,7 +63,7 @@ All devices stream data in real-time over WiFi to an iOS app. After collection, 
 | Component | Model | Interface | Purpose |
 |-----------|-------|-----------|---------|
 | MCU | ESP32-S3-WROOM-1-N16R8 | — | Main controller, WiFi, 8MB PSRAM |
-| Camera | OV2640 | DVP | 640x480 JPEG @ 25fps (configurable up to 30) |
+| Camera | OV2640 | DVP | 640x480 JPEG @ 30fps (configurable) |
 | IMU | BMI270 | I2C | 6-axis, 200Hz, interrupt-driven |
 | Encoder | AS5600 | I2C | 12-bit magnetic, absolute angle |
 | Battery | 301230 LiPo | JST-PH | ~110mAh, 18-25 min runtime |

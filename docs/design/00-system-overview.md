@@ -115,7 +115,7 @@ graph LR
 | Phase | Goal | Validation Criteria |
 |-------|------|-------------------|
 | 1 | System design & specification | Design reviewed and approved |
-| 2 | Dev board prototype validation | Stable 25fps JPEG + 200Hz IMU streaming over WiFi for 15+ min |
+| 2 | Dev board prototype validation | Stable 30fps JPEG + 200Hz IMU streaming over WiFi for 15+ min |
 | 3 | iOS app single-device validation | Record 5-min session, data files match spec, export works |
 | 4 | Offline data pipeline validation | Valid LeRobot v3.0 dataset loadable for policy training |
 | 5 | Custom PCB design & fabrication | Assembled PCB boots, all sensors respond, WiFi connects |
@@ -129,7 +129,7 @@ graph LR
 
 | Risk | Severity | Likelihood | Mitigation |
 |------|----------|------------|------------|
-| WiFi bandwidth insufficient for 3x JPEG streams at 25fps | High | Medium | Configurable profiles (Safe: 320x240, Hi-Res: 15fps); test in Phase 2 |
+| WiFi bandwidth insufficient for 3x JPEG streams at 30fps | High | Medium | Configurable profiles (Safe: 320x240, Hi-Res: 15fps); test in Phase 2 |
 | OV2640 rolling shutter degrades VIO during fast motion | Medium | Medium | VINS-Fusion RS model; exposure <5ms with bright lighting; 8-15mm accuracy |
 | OV2640 fixed-focus blur at close range (<15cm) | Medium | Medium | Adjustable-focus OV2640 module with manual focus ring |
 | iOS background suspension during recording | Medium | High | `isIdleTimerDisabled` + `BGContinuedProcessingTask`; user warned |

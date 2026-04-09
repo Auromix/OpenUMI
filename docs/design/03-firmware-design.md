@@ -4,7 +4,7 @@
 
 ## Overview
 
-A single firmware binary runs on all three devices (left hand, right hand, head). Device role is configured via NVS. The firmware captures sensor data at 200Hz and camera frames at 25fps, streaming everything to the iPhone app over WiFi.
+A single firmware binary runs on all three devices (left hand, right hand, head). Device role is configured via NVS. The firmware captures sensor data at 200Hz and camera frames at 30fps, streaming everything to the iPhone app over WiFi.
 
 ## Framework
 
@@ -25,7 +25,7 @@ wifi_ssid      = "<phone hotspot SSID>"
 wifi_pass      = "<phone hotspot password>"
 device_name    = "openumi-left" | "openumi-right" | "openumi-head"
 camera_res     = VGA | QVGA          (640x480 | 320x240, default VGA)
-camera_fps     = 25 | 15 | 30        (default 25)
+camera_fps     = 25 | 15 | 30        (default 30)
 jpeg_quality   = 50-90               (default 70)
 ```
 
@@ -182,4 +182,4 @@ sequenceDiagram
 | 7 | Implement `config_manager`: NVS + runtime config commands | ESP-IDF |
 | 8 | Implement `power_manager` + `led_indicator` | ESP-IDF |
 | 9 | Integration test on ESP32-S3 dev board + OV2640 + BMI270 breakout + AS5600 breakout | Dev board |
-| 10 | Validate: 25fps JPEG + 200Hz IMU over WiFi for 15+ minutes | Measurement |
+| 10 | Validate: 30fps JPEG + 200Hz IMU over WiFi for 15+ minutes | Measurement |

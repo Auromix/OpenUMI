@@ -156,7 +156,7 @@ timestamp_us,angle_rad
   "session_id": "20260409_143052",
   "start_time_utc": "2026-04-09T14:30:52Z",
   "end_time_utc": "2026-04-09T14:35:52Z",
-  "fps": 25,
+  "fps": 30,
   "camera_resolution": [640, 480],
   "jpeg_quality": 70,
   "imu_sample_rate_hz": 200,
