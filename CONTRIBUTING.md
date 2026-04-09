@@ -21,7 +21,7 @@ Thank you for your interest in contributing to OpenUMI! This document provides g
 
 ### MCP Tools (Optional)
 
-This project uses AI-assisted development. See [docs/design/system-design.md](docs/design/system-design.md#7-ai-driven-development-toolchain) for MCP server setup.
+This project uses AI-assisted development. See [docs/design/00-system-overview.md](docs/design/00-system-overview.md) for MCP server setup and toolchain details.
 
 ## Project Structure
 

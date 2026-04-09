@@ -176,7 +176,17 @@ This project is developed using an AI-driven workflow with Claude Code and MCP i
 
 ## Project Status
 
-This project is in the **design phase**. See [`docs/design/system-design.md`](docs/design/system-design.md) for the full design specification.
+This project is in the **design phase**. See [`docs/design/`](docs/design/) for the full design specification:
+
+| Document | Scope |
+|----------|-------|
+| [System Overview](docs/design/00-system-overview.md) | Architecture, roadmap, risk register, toolchain |
+| [Mechanical Design](docs/design/01-mechanical-design.md) | Scissor mechanism, enclosure, head mount, 3D printing |
+| [PCB Design](docs/design/02-pcb-design.md) | Schematic, component selection, layout, JLCPCB manufacturing |
+| [Firmware Design](docs/design/03-firmware-design.md) | ESP-IDF, FreeRTOS tasks, sensor drivers, WiFi streaming |
+| [iOS App Design](docs/design/04-ios-app-design.md) | SwiftUI app, device discovery, recording, data storage |
+| [PC Pipeline Design](docs/design/05-pc-pipeline-design.md) | VINS-Fusion VIO, UMI zarr, LeRobot v3.0 conversion |
+| [Communication Protocol](docs/design/06-communication-protocol.md) | WiFi topology, packet formats, time synchronization |
 
 ### Roadmap
 
