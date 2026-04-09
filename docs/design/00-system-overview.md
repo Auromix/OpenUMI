@@ -31,13 +31,13 @@ OpenUMI is a wireless data collection system for robot imitation learning. It ca
 ```mermaid
 graph TD
     subgraph Devices["Wireless Devices"]
-        L["🤚 Left Hand - ESP32-S3 + OV2640 - BMI270 + AS5600"]
-        R["✋ Right Hand - ESP32-S3 + OV2640 - BMI270 + AS5600"]
-        H["👤 Head - ESP32-S3 + OV2640 - BMI270 (no encoder)"]
+        L["Left Hand Device"]
+        R["Right Hand Device"]
+        H["Head Device"]
     end
 
-    subgraph Phone["iPhone App (SwiftUI)"]
-        P["Video Preview - Sensor Status - Recording Control - Local Storage"]
+    subgraph Phone["iPhone App"]
+        P["Preview + Record + Store"]
     end
 
     subgraph PC["PC Offline Processing"]
@@ -69,20 +69,20 @@ graph TD
 
 ```mermaid
 graph LR
-    subgraph Phone["📱 Phone (Raw)"]
+    subgraph Phone["Phone Raw Data"]
         JPEG["JPEG Frames"]
         IMU["IMU CSV"]
         ENC["Encoder CSV"]
         META["metadata.json"]
     end
 
-    subgraph PC["💻 PC (Processed)"]
-        SLAM["VINS-Fusion - VIO (RS mode)"]
+    subgraph PC["PC Processing"]
+        SLAM["VINS-Fusion VIO"]
         GRIP["Encoder to Gripper Width"]
         ZARR["UMI Zarr"]
     end
 
-    subgraph Train["🤖 Training"]
+    subgraph Train["Training"]
         LR["LeRobot v3.0"]
         DP["Diffusion Policy - ACT, etc."]
     end

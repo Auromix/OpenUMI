@@ -64,12 +64,12 @@ graph LR
     LDO --> ESP["ESP32-S3 - WROOM-1-N16R8"]
 
     ESP -- "I2C bus 1 - SDA/SCL + 4.7kΩ" --> IMU["BMI270"]
-    ESP -- "I2C bus 1" --> ENC["AS5600 - (unpopulated on head)"]
+    ESP -- "I2C bus 1" --> ENC["AS5600 Encoder"]
     ESP -- "I2C bus 0 - SCCB" --> CAM["OV2640 - FPC 24-pin"]
     ESP -- "DVP 8-bit - PCLK VSYNC HREF XCLK" --> CAM
-    ESP -- "GPIO" --> LED1["LED Green - (power)"]
-    ESP -- "GPIO" --> LED2["LED Red/Blue - (status)"]
-    ESP -- "ADC" --> VDIV["Voltage Divider - (battery monitor)"]
+    ESP -- "GPIO" --> LED1["LED Green"]
+    ESP -- "GPIO" --> LED2["LED Status"]
+    ESP -- "ADC" --> VDIV["Battery Monitor"]
     ESP -- "GPIO" --> BMI_INT["BMI270 - DATA_READY"]
 ```
 

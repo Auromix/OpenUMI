@@ -24,18 +24,18 @@ A single-page SwiftUI app that discovers OpenUMI devices, provides live video pr
 ```mermaid
 graph TD
     subgraph UI["SwiftUI View Layer"]
-        VL["VideoView - (left)"]
-        VR["VideoView - (right)"]
-        VH["VideoView - (head)"]
+        VL["VideoView Left"]
+        VR["VideoView Right"]
+        VH["VideoView Head"]
         RV["RecordingView - Controls + Sensor Status"]
     end
 
     RS["RecordingSession - ObservableObject - State Machine"]
 
     subgraph DM["Device Managers"]
-        DML["DeviceManager - (left)"]
-        DMR["DeviceManager - (right)"]
-        DMH["DeviceManager - (head)"]
+        DML["DeviceManager Left"]
+        DMR["DeviceManager Right"]
+        DMH["DeviceManager Head"]
     end
 
     VL --> RS
