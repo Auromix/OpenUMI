@@ -37,20 +37,29 @@ jpeg_quality   = 50-90               (default 70)
 
 ```mermaid
 graph TB
-    subgraph Core0["Core 0 — Networking"]
-        WIFI["WiFi Protocol Stack<br/>(system, pinned to Core 0)"]
-        VID["video_send_task<br/>HIGH priority<br/>─────────────<br/>Dequeue JPEG frames<br/>TCP send to phone<br/>Frame-drop if buffer full"]
-        NET["net_ctrl_task<br/>MEDIUM priority<br/>─────────────<br/>UDP sensor data send<br/>UDP control cmd receive<br/>Clock sync response"]
+    subgraph Core0["Core 0: Networking"]
+        WIFI["WiFi Stack"]
+        VID["video_send_task - HIGH"]
+        NET["net_ctrl_task - MEDIUM"]
     end
 
-    subgraph Core1["Core 1 — Capture"]
-        SENSOR["sensor_task<br/>⚡ HIGHEST priority<br/>─────────────<br/>BMI270 DATA_READY notify<br/>Read IMU via I2C bus 1<br/>Read AS5600 via I2C bus 1<br/>Hardware timestamp (μs)<br/>Write to send queue<br/>200Hz cycle"]
-        CAM["camera_task<br/>HIGH priority<br/>─────────────<br/>DVP frame capture<br/>JPEG buffer mgmt (2 buffers)<br/>Write to send queue"]
+    subgraph Core1["Core 1: Capture"]
+        SENSOR["sensor_task - HIGHEST"]
+        CAM["camera_task - HIGH"]
     end
 
-    SENSOR --> NET
-    CAM --> VID
+    SENSOR -- "sensor queue" --> NET
+    CAM -- "frame queue" --> VID
 ```
+
+**Core 0 tasks:**
+- **WiFi Protocol Stack**: System-managed, pinned to Core 0
+- **video_send_task** (HIGH): Dequeue JPEG frames, TCP send, frame-drop if buffer full
+- **net_ctrl_task** (MEDIUM): UDP sensor send, control command receive, clock sync
+
+**Core 1 tasks:**
+- **sensor_task** (HIGHEST): BMI270 + AS5600 via I2C bus 1, hardware timestamp, 200Hz
+- **camera_task** (HIGH): DVP frame capture, 2-buffer JPEG management
 
 **Why sensors on Core 1**: WiFi on Core 0 generates frequent high-priority interrupts that cause I2C timing violations and bus errors ([espressif/arduino-esp32#1352](https://github.com/espressif/arduino-esp32/issues/1352)). Isolating sensor reads on Core 1 avoids this.
 

@@ -25,24 +25,24 @@ OpenUMI is a portable, low-cost data collection toolkit designed for collecting 
 ```mermaid
 graph TD
     subgraph Devices["Wireless Devices"]
-        L["🤚 Left Hand<br/>ESP32-S3 + OV2640<br/>BMI270 + AS5600"]
-        R["✋ Right Hand<br/>ESP32-S3 + OV2640<br/>BMI270 + AS5600"]
-        H["👤 Head<br/>ESP32-S3 + OV2640<br/>BMI270 (no encoder)"]
+        L["🤚 Left Hand\nESP32-S3 + OV2640\nBMI270 + AS5600"]
+        R["✋ Right Hand\nESP32-S3 + OV2640\nBMI270 + AS5600"]
+        H["👤 Head\nESP32-S3 + OV2640\nBMI270 (no encoder)"]
     end
 
     subgraph Phone["iPhone App (SwiftUI)"]
-        P["Video Preview<br/>Sensor Status<br/>Recording Control<br/>Local Storage"]
+        P["Video Preview\nSensor Status\nRecording Control\nLocal Storage"]
     end
 
     subgraph PC["PC Offline Processing"]
         VIO["VINS-Fusion VIO"]
         CONV["UMI Zarr Assembly"]
-        LR["LeRobot v3.0<br/>Dataset"]
+        LR["LeRobot v3.0\nDataset"]
     end
 
-    L -- "WiFi: TCP video<br/>UDP sensor" --> P
-    R -- "WiFi: TCP video<br/>UDP sensor" --> P
-    H -- "WiFi: TCP video<br/>UDP sensor" --> P
+    L -- "WiFi: TCP video\nUDP sensor" --> P
+    R -- "WiFi: TCP video\nUDP sensor" --> P
+    H -- "WiFi: TCP video\nUDP sensor" --> P
     P -- "Export raw data" --> VIO
     VIO --> CONV
     CONV --> LR
@@ -113,14 +113,14 @@ graph LR
     end
 
     subgraph PC["💻 PC (Processed)"]
-        SLAM["VINS-Fusion<br/>VIO (RS mode)"]
-        GRIP["Encoder →<br/>Gripper Width"]
+        SLAM["VINS-Fusion\nVIO (RS mode)"]
+        GRIP["Encoder to Gripper Width"]
         ZARR["UMI Zarr"]
     end
 
     subgraph Train["🤖 Training"]
         LR["LeRobot v3.0"]
-        DP["Diffusion Policy<br/>ACT, etc."]
+        DP["Diffusion Policy\nACT, etc."]
     end
 
     JPEG --> SLAM

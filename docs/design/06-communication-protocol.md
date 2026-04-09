@@ -10,15 +10,15 @@ Three ESP32-S3 devices communicate with an iPhone app over WiFi (iPhone Personal
 
 ```mermaid
 graph TD
-    PHONE["📱 iPhone Personal Hotspot<br/>172.20.10.1"]
-    LEFT["🤚 Left Hand ESP32<br/>172.20.10.x<br/>WiFi STA"]
-    RIGHT["✋ Right Hand ESP32<br/>172.20.10.x<br/>WiFi STA"]
-    HEAD["👤 Head ESP32<br/>172.20.10.x<br/>WiFi STA"]
+    PHONE["📱 iPhone Personal Hotspot\n172.20.10.1"]
+    LEFT["🤚 Left Hand ESP32\n172.20.10.x\nWiFi STA"]
+    RIGHT["✋ Right Hand ESP32\n172.20.10.x\nWiFi STA"]
+    HEAD["👤 Head ESP32\n172.20.10.x\nWiFi STA"]
 
-    LEFT -- "TCP :19801 (video)<br/>UDP :19802 (sensor)" --> PHONE
-    RIGHT -- "TCP :19801 (video)<br/>UDP :19802 (sensor)" --> PHONE
-    HEAD -- "TCP :19801 (video)<br/>UDP :19802 (sensor)" --> PHONE
-    PHONE -- "UDP :19803 broadcast<br/>(START/STOP/SYNC)" --> LEFT
+    LEFT -- "TCP :19801 (video)\nUDP :19802 (sensor)" --> PHONE
+    RIGHT -- "TCP :19801 (video)\nUDP :19802 (sensor)" --> PHONE
+    HEAD -- "TCP :19801 (video)\nUDP :19802 (sensor)" --> PHONE
+    PHONE -- "UDP :19803 broadcast\n(START/STOP/SYNC)" --> LEFT
     PHONE -- "UDP :19803 broadcast" --> RIGHT
     PHONE -- "UDP :19803 broadcast" --> HEAD
 ```
@@ -142,16 +142,16 @@ sequenceDiagram
     Note over Phone,Device: Phase 1: Startup Calibration (×10, take median)
     Phone->>Device: SYNC_REQ (phone_time_t1)
     Device->>Phone: SYNC_RESP (device_time_t2)
-    Note over Phone: RTT = t3 - t1<br/>offset = t2 - (t1 + RTT/2)
+    Note over Phone: RTT = t3-t1, offset = t2-(t1+RTT/2)
 
     Note over Phone,Device: Phase 2: Synchronized Start
     Phone->>Device: START (broadcast, absolute timestamp)
-    Note over Device: Begin recording<br/>Local hardware timer (μs) free-running
+    Note over Device: Begin recording, local hw timer free-running
 
     Note over Phone,Device: Phase 3: Drift Correction (every 10s)
     Phone->>Device: SYNC_REQ
     Device->>Phone: SYNC_RESP
-    Note over Phone: Update offset<br/>ESP32 drift ~20ppm → corrected <100μs
+    Note over Phone: Update offset, ESP32 drift ~20ppm corrected to under 100us
 ```
 
 ## Intra-Device Sensor Synchronization

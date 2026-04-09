@@ -10,23 +10,13 @@ The PC pipeline converts raw session data (JPEG frames + IMU CSV + encoder CSV) 
 
 ```mermaid
 graph TD
-    subgraph S1["Stage 1: Raw Session (from phone)"]
-        RAW["openumi_data/session_xxx/<br/>├── {device}/camera/*.jpg<br/>├── {device}/timestamps.csv<br/>├── {device}/imu.csv<br/>├── {device}/encoder.csv<br/>└── metadata.json"]
-    end
+    S1["Stage 1: Raw Session - JPEG + CSV + metadata"]
+    PROC["openumi_process.py - VIO + assembly"]
+    S2["Stage 2: UMI Zarr - eef_pos, gripper_width, camera_rgb"]
+    CONV["openumi_to_lerobot.py - LeRobotDataset API"]
+    S3["Stage 3: LeRobot v3.0 - Parquet + MP4"]
 
-    PROC["openumi_process.py<br/>(Steps 1-5)"]
-
-    subgraph S2["Stage 2: UMI-Compatible Zarr"]
-        ZARR["session_xxx.zarr/<br/>├── data/robot0_eef_pos (T,3)<br/>├── data/robot0_eef_rot_axis_angle (T,3)<br/>├── data/robot0_gripper_width (T,1)<br/>├── data/robot1_* (right hand)<br/>├── data/camera0/1/2_rgb (T,H,W,3)<br/>└── meta/episode_ends (N,)"]
-    end
-
-    CONV["openumi_to_lerobot.py<br/>(using LeRobotDataset API)"]
-
-    subgraph S3["Stage 3: LeRobot v3.0 Dataset"]
-        LR["openumi_dataset/<br/>├── meta/ (info.json, stats, tasks, episodes)<br/>├── data/ (chunk Parquet files)<br/>└── videos/<br/>    ├── observation.images.left_wrist/*.mp4<br/>    ├── observation.images.right_wrist/*.mp4<br/>    └── observation.images.head/*.mp4"]
-    end
-
-    RAW --> PROC --> ZARR --> CONV --> LR
+    S1 --> PROC --> S2 --> CONV --> S3
 ```
 
 ## Processing Steps
