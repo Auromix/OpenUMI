@@ -10,15 +10,15 @@ Three ESP32-S3 devices communicate with an iPhone app over WiFi (iPhone Personal
 
 ```mermaid
 graph TD
-    PHONE["📱 iPhone Personal Hotspot\n172.20.10.1"]
-    LEFT["🤚 Left Hand ESP32\n172.20.10.x\nWiFi STA"]
-    RIGHT["✋ Right Hand ESP32\n172.20.10.x\nWiFi STA"]
-    HEAD["👤 Head ESP32\n172.20.10.x\nWiFi STA"]
+    PHONE["📱 iPhone Personal Hotspot - 172.20.10.1"]
+    LEFT["🤚 Left Hand ESP32 - 172.20.10.x - WiFi STA"]
+    RIGHT["✋ Right Hand ESP32 - 172.20.10.x - WiFi STA"]
+    HEAD["👤 Head ESP32 - 172.20.10.x - WiFi STA"]
 
-    LEFT -- "TCP :19801 (video)\nUDP :19802 (sensor)" --> PHONE
-    RIGHT -- "TCP :19801 (video)\nUDP :19802 (sensor)" --> PHONE
-    HEAD -- "TCP :19801 (video)\nUDP :19802 (sensor)" --> PHONE
-    PHONE -- "UDP :19803 broadcast\n(START/STOP/SYNC)" --> LEFT
+    LEFT -- "TCP :19801 (video) - UDP :19802 (sensor)" --> PHONE
+    RIGHT -- "TCP :19801 (video) - UDP :19802 (sensor)" --> PHONE
+    HEAD -- "TCP :19801 (video) - UDP :19802 (sensor)" --> PHONE
+    PHONE -- "UDP :19803 broadcast - (START/STOP/SYNC)" --> LEFT
     PHONE -- "UDP :19803 broadcast" --> RIGHT
     PHONE -- "UDP :19803 broadcast" --> HEAD
 ```

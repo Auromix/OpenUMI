@@ -58,19 +58,19 @@ A single universal PCB serves all three devices (left hand, right hand, head). T
 
 ```mermaid
 graph LR
-    USB["USB Type-C\n+ 5.1kΩ CC pulldowns"] --> TP["TP4056 + DW01\nPROG = 10kΩ"]
-    TP --> BAT["LiPo 301230\n110mAh"]
-    BAT --> LDO["AP2112K-3.3\n600mA LDO"]
-    LDO --> ESP["ESP32-S3\nWROOM-1-N16R8"]
+    USB["USB Type-C - + 5.1kΩ CC pulldowns"] --> TP["TP4056 + DW01 - PROG = 10kΩ"]
+    TP --> BAT["LiPo 301230 - 110mAh"]
+    BAT --> LDO["AP2112K-3.3 - 600mA LDO"]
+    LDO --> ESP["ESP32-S3 - WROOM-1-N16R8"]
 
-    ESP -- "I2C bus 1\nSDA/SCL + 4.7kΩ" --> IMU["BMI270"]
-    ESP -- "I2C bus 1" --> ENC["AS5600\n(unpopulated on head)"]
-    ESP -- "I2C bus 0\nSCCB" --> CAM["OV2640\nFPC 24-pin"]
-    ESP -- "DVP 8-bit\nPCLK VSYNC HREF XCLK" --> CAM
-    ESP -- "GPIO" --> LED1["LED Green\n(power)"]
-    ESP -- "GPIO" --> LED2["LED Red/Blue\n(status)"]
-    ESP -- "ADC" --> VDIV["Voltage Divider\n(battery monitor)"]
-    ESP -- "GPIO" --> BMI_INT["BMI270\nDATA_READY"]
+    ESP -- "I2C bus 1 - SDA/SCL + 4.7kΩ" --> IMU["BMI270"]
+    ESP -- "I2C bus 1" --> ENC["AS5600 - (unpopulated on head)"]
+    ESP -- "I2C bus 0 - SCCB" --> CAM["OV2640 - FPC 24-pin"]
+    ESP -- "DVP 8-bit - PCLK VSYNC HREF XCLK" --> CAM
+    ESP -- "GPIO" --> LED1["LED Green - (power)"]
+    ESP -- "GPIO" --> LED2["LED Red/Blue - (status)"]
+    ESP -- "ADC" --> VDIV["Voltage Divider - (battery monitor)"]
+    ESP -- "GPIO" --> BMI_INT["BMI270 - DATA_READY"]
 ```
 
 ### I2C Bus Assignment

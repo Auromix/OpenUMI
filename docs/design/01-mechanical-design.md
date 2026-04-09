@@ -19,11 +19,11 @@ Three device enclosures share a common rectangular body design. Hand devices add
 ```mermaid
 graph TD
     subgraph Assembly["Hand Device — Side View"]
-        CAM["OV2640 Camera\n(external bracket)"]
-        BODY["Rectangular Body\nPCB + Battery + Type-C"]
-        AXIS["3mm Stainless Steel Shaft\n+ AS5600 Magnet"]
-        FA["Triangular Finger A\n(thumb)"]
-        FB["Triangular Finger B\n(index finger)"]
+        CAM["OV2640 Camera - (external bracket)"]
+        BODY["Rectangular Body - PCB + Battery + Type-C"]
+        AXIS["3mm Stainless Steel Shaft - + AS5600 Magnet"]
+        FA["Triangular Finger A - (thumb)"]
+        FB["Triangular Finger B - (index finger)"]
     end
 
     CAM --> BODY

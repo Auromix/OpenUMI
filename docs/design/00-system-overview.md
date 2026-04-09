@@ -31,24 +31,24 @@ OpenUMI is a wireless data collection system for robot imitation learning. It ca
 ```mermaid
 graph TD
     subgraph Devices["Wireless Devices"]
-        L["🤚 Left Hand\nESP32-S3 + OV2640\nBMI270 + AS5600"]
-        R["✋ Right Hand\nESP32-S3 + OV2640\nBMI270 + AS5600"]
-        H["👤 Head\nESP32-S3 + OV2640\nBMI270 (no encoder)"]
+        L["🤚 Left Hand - ESP32-S3 + OV2640 - BMI270 + AS5600"]
+        R["✋ Right Hand - ESP32-S3 + OV2640 - BMI270 + AS5600"]
+        H["👤 Head - ESP32-S3 + OV2640 - BMI270 (no encoder)"]
     end
 
     subgraph Phone["iPhone App (SwiftUI)"]
-        P["Video Preview\nSensor Status\nRecording Control\nLocal Storage"]
+        P["Video Preview - Sensor Status - Recording Control - Local Storage"]
     end
 
     subgraph PC["PC Offline Processing"]
         VIO["VINS-Fusion VIO"]
         CONV["UMI Zarr Assembly"]
-        LR["LeRobot v3.0\nDataset"]
+        LR["LeRobot v3.0 - Dataset"]
     end
 
-    L -- "WiFi: TCP video\nUDP sensor" --> P
-    R -- "WiFi: TCP video\nUDP sensor" --> P
-    H -- "WiFi: TCP video\nUDP sensor" --> P
+    L -- "WiFi: TCP video - UDP sensor" --> P
+    R -- "WiFi: TCP video - UDP sensor" --> P
+    H -- "WiFi: TCP video - UDP sensor" --> P
     P -- "Export raw data" --> VIO
     VIO --> CONV
     CONV --> LR
@@ -77,14 +77,14 @@ graph LR
     end
 
     subgraph PC["💻 PC (Processed)"]
-        SLAM["VINS-Fusion\nVIO (RS mode)"]
+        SLAM["VINS-Fusion - VIO (RS mode)"]
         GRIP["Encoder to Gripper Width"]
         ZARR["UMI Zarr"]
     end
 
     subgraph Train["🤖 Training"]
         LR["LeRobot v3.0"]
-        DP["Diffusion Policy\nACT, etc."]
+        DP["Diffusion Policy - ACT, etc."]
     end
 
     JPEG --> SLAM
