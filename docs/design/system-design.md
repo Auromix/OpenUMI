@@ -139,7 +139,7 @@ The hand device consists of:
 
 #### 2.2.3 Manufacturing
 
-- **Body and finger pieces**: JLCPCB 3D printing (SLA resin or MJF nylon)
+- **Body and finger pieces**: JLCPCB 3D printing (MJF PA12 nylon recommended for durability; SLA resin for prototyping only)
 - **Rotation axis**: Metal pin (stainless steel, press-fit)
 - **Design tool**: FreeCAD with MCP automation
 
@@ -765,7 +765,7 @@ graph TD
   - Expected accuracy: **8-15mm position** (OV2640 rolling shutter + VINS-Fusion RS model)
   - Note: UMI achieves 6.1mm with GoPro (also rolling shutter, but with 60fps + EIS). Our setup has lower framerate and no EIS, but VINS-Fusion's RS model partially compensates.
 - **Alternative**: OpenVINS (MSCKF-based, also supports rolling shutter, lighter weight)
-- **Future**: Real-time VIO on iPhone (ARKit or custom), upgrading from Phase C to Phase B
+- **Future**: Real-time VIO on iPhone (ARKit or custom), eliminating the need for offline processing
 
 **Operational recommendations for best VIO results**:
 - Use bright, consistent lighting to allow short exposure times (<5ms), reducing motion blur
@@ -1018,7 +1018,7 @@ gantt
 ## 10. Future Directions
 
 - **Wi-Fi Aware (iOS 26)**: iOS 26 introduced Wi-Fi Aware, enabling direct device-to-device WiFi without a hotspot. This would eliminate the Personal Hotspot dependency entirely. However, ESP32-S3 does not support Wi-Fi Aware (requires specific chipset support). Track [ESP-IDF issue #16743](https://github.com/espressif/esp-idf/issues/16743) for future hardware compatibility. If Espressif adds Wi-Fi Aware support (possibly in ESP32-C6 or future chips), this becomes the ideal connectivity solution.
-- **Real-time VIO on iPhone**: Upgrade from Phase C (offline VIO) to Phase B (real-time VIO on device), potentially leveraging ARKit or custom VIO running on iPhone's neural engine.
+- **Real-time VIO on iPhone**: Upgrade from offline VIO to real-time VIO on device, potentially leveraging ARKit or custom VIO running on iPhone's neural engine.
 - **ESP-IDF IPv6**: To future-proof against iOS hotspot IPv4 regressions, evaluate ESP-IDF's IPv6 support for dual-stack networking.
 
 ---

@@ -14,7 +14,7 @@ Thank you for your interest in contributing to OpenUMI! This document provides g
 ### Prerequisites
 
 - **Firmware**: ESP-IDF v5.x, Python 3.10+
-- **iOS App**: Xcode 15+, iOS 16.0+ device
+- **iOS App**: Xcode 26+, iOS 16.0+ device (must build with iOS 26 SDK)
 - **PCB Design**: KiCad 8
 - **Mechanical Design**: FreeCAD 0.21+
 - **Data Processing**: Python 3.10+, VINS-Fusion
