@@ -51,27 +51,29 @@ OpenUMI is a wireless data collection system for robot imitation learning. It ca
 - 2MP CMOS sensor
 - Built-in JPEG encoder (ISP on-chip)
 - DVP parallel interface (8-bit data + PCLK + VSYNC + HREF)
-- Default output: 640x480 JPEG @ 30fps (configurable)
-- Supported configurations: 640x480 or 320x240, 15fps or 30fps, JPEG quality 50-90
+- Default output: 640x480 JPEG @ 25fps (configurable, max ~30fps in ideal conditions)
+- Supported configurations: 640x480 or 320x240, 15/25/30 fps, JPEG quality 50-90
 - Typical JPEG frame size: 15-30 KB at quality 70 (640x480)
+- Note: 30fps is the OV2640 hardware upper limit at VGA; with concurrent WiFi TX, sustainable rate is 20-25fps
 - Module size: ~8 x 8 mm (with lens)
 - FPC 24-pin connector
 
 **Why OV2640 over USB UVC H.264**: ESP32-S3 only supports USB Full Speed (12 Mbps), and the USB Host UVC driver only supports MJPEG format — H.264 UVC is not feasible on S3. OV2640 via DVP has mature ESP-IDF driver support and is the standard camera for ESP32-S3 projects.
 
-**Bandwidth analysis (default 30fps, 640x480)**:
+**Bandwidth analysis (default 25fps, 640x480)**:
 - Per frame: 15-30 KB JPEG
-- Per device: 3.6-7.2 Mbps
-- Three devices total: 10.8-21.6 Mbps
-- iPhone hotspot throughput (2.4GHz): ~15-25 Mbps (practical, multi-device)
-- Margin: tight at default settings; fallback configurations available
+- Per device: 3.0-6.0 Mbps
+- Three devices total: 9.0-18.0 Mbps
+- iPhone hotspot throughput (2.4GHz): ~12-18 Mbps practical with 3 clients (collision overhead ~20-30%)
+- Margin: adequate at default; fallback profiles for congested RF environments
 
 **Configurable profiles** (set via App before recording):
 
 | Profile | Resolution | FPS | JPEG Quality | Per-Device BW | 3-Device BW | Stability |
 |---------|-----------|-----|-------------|---------------|-------------|-----------|
-| Default | 640x480 | 30 | 70 | ~5.4 Mbps | ~16.2 Mbps | Good in clean WiFi |
-| Safe | 320x240 | 30 | 70 | ~1.9 Mbps | ~5.7 Mbps | Very stable |
+| Default | 640x480 | 25 | 70 | ~4.5 Mbps | ~13.5 Mbps | Good in clean WiFi |
+| Max | 640x480 | 30 | 70 | ~5.4 Mbps | ~16.2 Mbps | Ideal conditions only |
+| Safe | 320x240 | 25 | 70 | ~1.6 Mbps | ~4.8 Mbps | Very stable |
 | Hi-Res | 640x480 | 15 | 80 | ~3.0 Mbps | ~9.0 Mbps | Very stable |
 
 #### 2.1.3 IMU: BMI270
@@ -100,11 +102,13 @@ OpenUMI is a wireless data collection system for robot imitation learning. It ca
 #### 2.1.5 Power
 
 - **Battery**: 301230 LiPo, ~110mAh, 30 x 12 x 3 mm
-- **Charge IC**: TP4056 with DW01 protection
-- **Charging**: USB Type-C connector (shared with firmware flashing)
-- **LDO**: ME6211 3.3V (low dropout, low quiescent current)
+- **Charge IC**: TP4056 with DW01 protection, PROG resistor = 10kΩ (limits charge current to ~100mA for 110mAh cell safety, ~1C rate)
+- **Charging**: USB Type-C connector with 5.1kΩ CC pull-downs (shared with firmware flashing)
+- **LDO**: AP2112K-3.3 (600mA max output, low dropout, SOT-23-5 package)
 - **Runtime estimate**: ~12-15 minutes at ~400-500mA continuous draw (WiFi + camera + sensors)
 - **Connector**: 2-pin JST-PH for battery
+
+**Why AP2112K over AP2112K**: ESP32-S3 peak current during WiFi TX bursts can reach 350-450mA (MCU + camera + sensors). AP2112K is rated 500mA with no headroom; AP2112K at 600mA provides sufficient margin to avoid brownout during transient spikes.
 
 #### 2.1.6 Indicators
 
@@ -164,7 +168,7 @@ The hand device consists of:
 graph LR
     USB["USB Type-C"] --> TP["TP4056<br/>Charge IC"]
     TP --> BAT["LiPo<br/>Battery"]
-    BAT --> LDO["ME6211<br/>3.3V LDO"]
+    BAT --> LDO["AP2112K<br/>3.3V LDO"]
     LDO --> ESP["ESP32-S3"]
     ESP -- "I2C" --> IMU["BMI270"]
     ESP -- "I2C" --> ENC["AS5600"]
@@ -202,7 +206,7 @@ NVS Configuration:
   wifi_pass       = "<phone hotspot password>"
   mdns_name      = "left.openumi" | "right.openumi" | "head.openumi"
   camera_res     = VGA | QVGA          (640x480 | 320x240, default VGA)
-  camera_fps     = 30 | 15             (default 30)
+  camera_fps     = 25 | 15 | 30        (default 25)
   jpeg_quality   = 50-90               (default 70)
 ```
 
@@ -312,12 +316,28 @@ graph TD
 
 ### 4.2 Device Discovery
 
-**Primary**: mDNS (Bonjour on iOS)
-- `left.openumi.local`
-- `right.openumi.local`
-- `head.openumi.local`
+> **Note**: mDNS (Bonjour) does not work reliably on iPhone Personal Hotspot (iOS 17+ confirmed broken — multicast packets are not forwarded between hotspot clients). The design uses UDP broadcast as the primary discovery mechanism.
 
-**Fallback**: Each device broadcasts a UDP "heartbeat" packet every 1 second to port 19800 (broadcast address). Packet contains device_id, role, IP address, firmware version. App listens and discovers devices this way if mDNS is unreliable.
+**Primary: UDP heartbeat broadcast**
+
+Each ESP32 device broadcasts a UDP "heartbeat" packet every 1 second to the subnet broadcast address on port 19800. The iOS app listens on this port and discovers devices automatically.
+
+Heartbeat packet (32 bytes):
+
+| Field | Size | Type | Description |
+|-------|------|------|-------------|
+| magic | 4 bytes | uint32 | `0x554D4948` ("UMIH") |
+| device_role | 1 byte | uint8 | 0=left, 1=right, 2=head |
+| firmware_ver | 3 bytes | uint8[3] | Major.minor.patch |
+| device_ip | 4 bytes | uint32 | Device IPv4 address |
+| device_name | 16 bytes | char[16] | Null-terminated name (e.g., "openumi-left") |
+| reserved | 4 bytes | — | Reserved |
+
+The app collects heartbeats, deduplicates by device_role, and establishes TCP/UDP connections to the reported IP addresses.
+
+**Fallback: BLE advertisement**
+
+If UDP broadcast fails (e.g., network isolation), each ESP32 advertises a BLE service with its role and IP address. The iOS app can scan BLE to discover device IPs, then connect via WiFi. BLE is only used for discovery, not data transfer.
 
 ### 4.3 Transport Channels
 
@@ -474,7 +494,7 @@ graph TD
 
 | Module | Responsibility |
 |--------|---------------|
-| `DeviceManager` | Bonjour discovery (NWBrowser), TCP/UDP connections (NWConnection), device lifecycle |
+| `DeviceManager` | UDP heartbeat discovery, BLE fallback, TCP/UDP connections (NWConnection), device lifecycle |
 | `VideoPreview` | Receive JPEG frames, display via UIImage on SwiftUI Canvas |
 | `SensorReceiver` | Parse UDP sensor packets, update UI bindings |
 | `RecordingSession` | State machine: idle → countdown → calibrating → recording → saving → complete |
@@ -486,7 +506,7 @@ graph TD
 1. User enables iPhone Personal Hotspot (preconfigured SSID/password)
 2. Power on three devices (auto-connect to hotspot)
 3. Open OpenUMI app
-4. App discovers devices via Bonjour, shows connection status
+4. App discovers devices via UDP heartbeat broadcast, shows connection status
 5. Three video previews appear automatically
 6. User sets recording duration (picker wheel)
 7. Tap "Start" → 3-2-1 countdown → clock calibration (~200ms) → recording begins
@@ -566,7 +586,7 @@ timestamp_us,angle_rad
   "session_id": "20260409_143052",
   "start_time_utc": "2026-04-09T14:30:52Z",
   "end_time_utc": "2026-04-09T14:35:52Z",
-  "fps": 30,
+  "fps": 25,
   "camera_resolution": [640, 480],
   "jpeg_quality": 70,
   "imu_sample_rate_hz": 200,
@@ -619,7 +639,7 @@ graph TD
         ZARR["session_xxx.zarr/<br/>├── data/robot0_eef_pos (T,3)<br/>├── data/robot0_eef_rot_axis_angle (T,3)<br/>├── data/robot0_gripper_width (T,1)<br/>├── data/robot1_* (right hand)<br/>├── data/camera0/1/2_rgb (T,H,W,3)<br/>└── meta/episode_ends (N,)"]
     end
 
-    CONV["openumi_to_lerobot.py<br/>(adapted umi_zarr_format.py)"]
+    CONV["openumi_to_lerobot.py<br/>(using LeRobotDataset API)"]
 
     subgraph S3["Stage 3: LeRobot v3.0 Dataset"]
         LR["openumi_dataset/<br/>├── meta/ (info.json, stats, tasks, episodes)<br/>├── data/ (chunk Parquet files)<br/>└── videos/<br/>    ├── observation.images.left_wrist/*.mp4<br/>    ├── observation.images.right_wrist/*.mp4<br/>    └── observation.images.head/*.mp4"]
@@ -636,7 +656,7 @@ graph TD
 | 2 | camera/*.jpg + imu.csv (per hand) | camera_trajectory.csv | ORB-SLAM3 visual-inertial odometry → 6-DoF camera poses |
 | 3 | camera_trajectory.csv + calibration | eef_pos + eef_rot | Hand-eye calibration: camera pose → TCP (tool center point) pose |
 | 4 | encoder.csv + mechanical params | gripper_width (meters) | Encoder angle → gripper width via mechanical geometry |
-| 5 | All above | session_xxx.zarr | Resample all streams to video framerate (30fps), assemble UMI zarr |
+| 5 | All above | session_xxx.zarr | Resample all streams to video framerate (25fps), assemble UMI zarr |
 
 ### 6.3 LeRobot Feature Mapping
 
@@ -644,7 +664,7 @@ graph TD
 {
   "codebase_version": "v3.0",
   "robot_type": "openumi",
-  "fps": 30,
+  "fps": 25,
   "features": {
     "observation.state": {
       "dtype": "float32",
@@ -691,15 +711,44 @@ graph TD
   - Expected accuracy: ~6mm position, ~3.5 degrees rotation (matching UMI results)
 - **Future**: Real-time VIO on iPhone (ARKit or custom), upgrading from Phase C to Phase B
 
-### 6.5 Tools & Dependencies
+### 6.5 LeRobot Conversion Approach
+
+> **Note**: The legacy `umi_zarr_format.py` conversion script has been removed from the lerobot repository (the entire `push_dataset_to_hub/` directory was deprecated). The conversion now uses the `LeRobotDataset` public API directly.
+
+Stage 2 → Stage 3 conversion (`openumi_to_lerobot.py`) works as follows:
+
+```python
+from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
+
+# Create empty dataset with OpenUMI features
+dataset = LeRobotDataset.create(repo_id="user/openumi-task", fps=25, features=OPENUMI_FEATURES)
+
+# Iterate UMI zarr episodes, add frames
+for episode in zarr_episodes:
+    for frame in episode:
+        dataset.add_frame({
+            "observation.state": state_14d,           # from zarr robot0/1 fields
+            "observation.images.left_wrist": left_img,  # from zarr camera0_rgb
+            "observation.images.right_wrist": right_img,
+            "observation.images.head": head_img,
+            "action": next_state_14d,                 # state[t+1]
+            "task": task_description,
+        })
+    dataset.save_episode()
+
+dataset.consolidate()
+dataset.push_to_hub()
+```
+
+### 6.6 Tools & Dependencies
 
 - **Python 3.10+** for all processing scripts
-- **ORB-SLAM3** for visual-inertial odometry
-- **OpenCV** for JPEG decoding and ArUco/calibration
+- **ORB-SLAM3** for visual-inertial odometry (supports JPEG sequences + IMU CSV natively)
+- **OpenCV** for JPEG decoding and calibration
 - **NumPy / Pandas** for data manipulation
 - **zarr** for intermediate UMI format
-- **lerobot** Python package for final conversion and push_to_hub
-- **ffmpeg** for JPEG sequence → MP4 transcoding (called by lerobot)
+- **lerobot >= 0.4.0** for `LeRobotDataset` API and `push_to_hub`
+- **ffmpeg** for JPEG sequence → MP4 transcoding (called internally by lerobot)
 
 ---
 
@@ -888,13 +937,16 @@ gantt
 
 | Risk | Severity | Likelihood | Mitigation |
 |------|----------|------------|------------|
-| WiFi bandwidth insufficient for 3x JPEG streams | High | Medium | Reduce JPEG quality / framerate; test early in Phase 1 |
-| OV2640 JPEG quality too low for VIO | Medium | Low | Test with ORB-SLAM3 early; can upgrade to OV5640 if needed |
+| WiFi bandwidth insufficient for 3x JPEG streams at default 25fps | High | Medium | Configurable profiles (Safe: 320x240, Hi-Res: 15fps); test early in Phase 2 |
+| OV2640 sustainable framerate <25fps under concurrent WiFi | Medium | Medium | Default 25fps conservative; 30fps profile for ideal conditions only |
 | iOS background suspension during recording | Medium | High | Silent audio session + beginBackgroundTask; user warning |
-| mDNS unreliable on iPhone hotspot | Low | Medium | UDP heartbeat fallback discovery mechanism |
+| mDNS broken on iPhone hotspot (iOS 17+) | ~~Low~~ | ~~Medium~~ | ~~Resolved: mDNS removed as primary.~~ UDP heartbeat broadcast is now primary discovery; BLE fallback |
 | ESP32-S3 dual-core task contention | Medium | Low | Priority-based scheduling; sensor task at highest priority |
-| Battery life too short (<10 min) | Medium | Medium | Optimize WiFi power; reduce camera framerate during idle |
+| Battery life too short (<10 min) with 110mAh | Medium | Medium | Optimize WiFi power; reduce camera framerate during idle; consider larger cell |
+| LDO brownout during WiFi TX spikes | Medium | Low | AP2112K (600mA) selected over ME6211 (500mA); add bulk capacitance |
+| TP4056 overcharging small cell | High | Low | PROG resistor = 10kΩ limits charge to ~100mA (~1C for 110mAh); verified in schematic |
 | 3D-printed enclosure too fragile | Low | Low | Test with MJF nylon; iterate design |
+| OV2640 zero-sized frame bug in esp32-camera | Medium | Low | Pin specific esp-idf + esp32-camera version; thorough testing in Phase 2 |
 
 ---
 

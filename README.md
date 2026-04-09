@@ -17,7 +17,7 @@ OpenUMI is a portable, low-cost data collection toolkit designed for collecting 
 - **LeRobot v3.0 native** — Data pipeline outputs UMI-compatible zarr, directly convertible to LeRobot datasets
 - **Low cost** — ~$30-50 per device using off-the-shelf components
 - **Simple mechanics** — Scissor-style 1-DOF gripper with a single magnetic encoder
-- **Configurable capture** — 640x480 or 320x240, 15 or 30 fps, adjustable JPEG quality
+- **Configurable capture** — 640x480 or 320x240, 15/25/30 fps, adjustable JPEG quality
 - **AI-driven development** — Entire project built with Claude Code + MCP tools (FreeCAD, KiCad, ESP-IDF, Xcode)
 
 ## Architecture
@@ -63,11 +63,11 @@ All devices stream data in real-time over WiFi to an iOS app. After collection, 
 | Component | Model | Interface | Purpose |
 |-----------|-------|-----------|---------|
 | MCU | ESP32-S3-WROOM-1-N16R8 | — | Main controller, WiFi, 8MB PSRAM |
-| Camera | OV2640 | DVP | 640x480 JPEG @ 30fps (configurable) |
+| Camera | OV2640 | DVP | 640x480 JPEG @ 25fps (configurable up to 30) |
 | IMU | BMI270 | I2C | 6-axis, 200Hz, interrupt-driven |
 | Encoder | AS5600 | I2C | 12-bit magnetic, absolute angle |
 | Battery | 301230 LiPo | JST-PH | ~110mAh, 12-15 min runtime |
-| Charger | TP4056 | Type-C | Li-ion charge management |
+| Charger | TP4056 | Type-C | Li-ion charge management (100mA) |
 
 > The head device uses the same PCB with AS5600 left unpopulated.
 
@@ -88,7 +88,7 @@ Single firmware for all three devices, role configured via NVS:
 
 ### iOS App (SwiftUI)
 
-- Auto-discovers devices via Bonjour (mDNS)
+- Auto-discovers devices via UDP heartbeat broadcast (mDNS unreliable on iPhone hotspot)
 - Three-camera live JPEG preview
 - Recording control with 3-second countdown and timed stop
 - Streams all data to CSV + JPEG files in app Documents
