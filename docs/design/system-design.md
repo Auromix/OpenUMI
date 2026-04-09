@@ -105,7 +105,7 @@ OpenUMI is a wireless data collection system for robot imitation learning. It ca
 - **Charge IC**: TP4056 with DW01 protection, PROG resistor = 10kΩ (limits charge current to ~100mA for 110mAh cell safety, ~1C rate)
 - **Charging**: USB Type-C connector with 5.1kΩ CC pull-downs (shared with firmware flashing)
 - **LDO**: AP2112K-3.3 (600mA max output, low dropout, SOT-23-5 package)
-- **Runtime estimate**: ~12-15 minutes at ~400-500mA continuous draw (WiFi + camera + sensors)
+- **Runtime estimate**: ~18-25 minutes at ~270-350mA average draw at 3.3V rail (WiFi + camera + sensors); peaks to ~400mA during WiFi TX bursts
 - **Connector**: 2-pin JST-PH for battery
 
 **Why AP2112K over AP2112K**: ESP32-S3 peak current during WiFi TX bursts can reach 350-450mA (MCU + camera + sensors). AP2112K is rated 500mA with no headroom; AP2112K at 600mA provides sufficient margin to avoid brownout during transient spikes.
@@ -121,7 +121,7 @@ OpenUMI is a wireless data collection system for robot imitation learning. It ca
 
 The hand device consists of:
 
-1. **Rectangular body** (~30 x 25 x 12 mm): Houses PCB, battery, Type-C port
+1. **Rectangular body** (~34 x 30 x 12 mm): Houses PCB (28x32mm) + battery, Type-C port
 2. **Two triangular finger pieces**: Worn on thumb and index finger
 3. **Shared rotation axis**: Single shaft connecting both finger pieces to the body via a hinge
 4. **AS5600 + magnet**: Encoder at one end of the shaft, diametric magnet fixed to the shaft
@@ -147,20 +147,28 @@ The hand device consists of:
 
 #### 2.3.1 Board Specifications
 
-- **Dimensions**: ~25 x 30 mm (2-layer or 4-layer)
+- **Dimensions**: ~28 x 32 mm (4-layer required)
+- **Layer stack**: TOP (signal + components) / GND / POWER / BOTTOM (signal + components)
 - **Universal design**: Same PCB for all three devices; AS5600 left unpopulated for head device
-- **Manufacturer**: JLCPCB standard process
+- **Antenna**: ESP32-S3 module antenna end overhangs PCB top edge by ~3-5mm (eliminates keepout area on PCB)
+- **Passive components**: 0402 size (JLCPCB standard assembly)
+- **Manufacturer**: JLCPCB standard 4-layer process (~$8-12 for 5 pcs)
+
+**Why 28x32mm**: The ESP32-S3-WROOM-1-N16R8 module alone is 18x25.5mm (would occupy 61% of a 25x30mm board). At 28x32mm, there is sufficient room for the USB-C connector on the bottom edge, FPC camera connector on a side edge, and all ICs/passives on the back side.
+
+**Why 4-layer**: (1) Unbroken GND plane under BMI270 for vibration rejection; (2) ESP-IDF hardware design guidelines recommend 4-layer for WROOM modules; (3) 12+ DVP camera signals need inner-layer routing at this density.
 
 #### 2.3.2 Key Layout Considerations
 
-- WiFi antenna keepout zone (no copper under/near ESP32-S3 antenna)
-- BMI270 placed near board center for minimal mechanical vibration coupling
-- OV2640 FPC connector on board edge
-- Type-C connector on board edge (accessible for charging and flashing)
-- Battery JST-PH connector
-- I2C bus: BMI270 + AS5600 on shared SDA/SCL with pull-ups
+- **Top side**: ESP32-S3 module only, antenna overhanging top edge into open air
+- **Bottom side**: BMI270 (center, over solid GND plane), AS5600, TP4056, AP2112K, LEDs, passives
+- **Bottom edge**: USB Type-C mid-mount connector (cable access, closest to ESP32 USB pins)
+- **Side edge**: OV2640 FPC 24-pin connector (13.5mm wide, along 32mm edge, near DVP pin cluster)
+- **I2C bus 0**: Camera SCCB only (OV2640 register access during init)
+- **I2C bus 1**: BMI270 + AS5600 on shared SDA/SCL with 4.7kΩ pull-ups (high-frequency sensor reads)
+- Battery JST-PH connector on side edge
 - Two LED footprints with current-limiting resistors
-- Programming/debug header (optional, for development)
+- No debug header (USB serial used for flashing and debug to save space)
 
 #### 2.3.3 Schematic Blocks
 
@@ -220,22 +228,58 @@ Initial NVS configuration is written via USB serial during first setup.
 
 ```mermaid
 graph TB
-    subgraph Core0["Core 0"]
-        WIFI["WiFi Protocol Stack<br/>(system, pinned)"]
-        SENSOR["sensor_task<br/>⚡ HIGHEST priority<br/>─────────────<br/>BMI270 DATA_READY ISR<br/>Read IMU via I2C<br/>Read AS5600 via I2C<br/>Hardware timestamp (μs)<br/>Write to send queue<br/>200Hz cycle"]
+    subgraph Core0["Core 0 — Networking"]
+        WIFI["WiFi Protocol Stack<br/>(system, pinned to Core 0)"]
+        VID["video_send_task<br/>HIGH priority<br/>─────────────<br/>Dequeue JPEG frames<br/>TCP send to phone<br/>Frame-drop if buffer full"]
         NET["net_ctrl_task<br/>MEDIUM priority<br/>─────────────<br/>UDP sensor data send<br/>UDP control cmd receive<br/>Clock sync response"]
     end
 
-    subgraph Core1["Core 1"]
-        CAM["camera_task<br/>HIGH priority<br/>─────────────<br/>DVP frame capture<br/>JPEG buffer mgmt<br/>Write to send queue"]
-        VID["video_send_task<br/>MEDIUM priority<br/>─────────────<br/>Dequeue JPEG frames<br/>TCP send to phone<br/>Flow control / reconnect"]
+    subgraph Core1["Core 1 — Capture"]
+        SENSOR["sensor_task<br/>⚡ HIGHEST priority<br/>─────────────<br/>BMI270 DATA_READY notify<br/>Read IMU via I2C bus 1<br/>Read AS5600 via I2C bus 1<br/>Hardware timestamp (μs)<br/>Write to send queue<br/>200Hz cycle"]
+        CAM["camera_task<br/>HIGH priority<br/>─────────────<br/>DVP frame capture<br/>JPEG buffer mgmt (2 buffers)<br/>Write to send queue"]
     end
 
     SENSOR --> NET
     CAM --> VID
 ```
 
-### 3.4 Boot Sequence
+> **Why sensors on Core 1 (not Core 0)**: WiFi protocol stack on Core 0 generates frequent high-priority interrupts that can cause I2C timing violations and bus errors. This is a [well-documented issue](https://github.com/espressif/arduino-esp32/issues/1352) across all ESP32 variants. Pinning sensor I2C reads to Core 1 avoids this contention.
+
+> **Separate I2C buses**: Camera SCCB (OV2640 register config) uses I2C bus 0. BMI270 + AS5600 use I2C bus 1. This prevents bus contention between camera initialization and high-frequency sensor reads.
+
+### 3.4 Critical sdkconfig Settings
+
+```
+# WiFi pinned to Core 0 (default)
+CONFIG_ESP_WIFI_TASK_CORE_ID=0
+
+# Disable DFS — incompatible with camera (esp32-camera #799)
+CONFIG_PM_ENABLE=n
+
+# PSRAM at 80MHz (safe for production; 120MHz has temperature sensitivity)
+CONFIG_SPIRAM_SPEED_80M=y
+
+# Camera: disable PSRAM DMA mode (broken for JPEG, esp32-camera #775)
+CONFIG_CAMERA_PSRAM_DMA=n
+
+# I2C: use new i2c_master driver for better bus recovery
+CONFIG_I2C_ISR_IRAM_SAFE=y
+```
+
+Camera initialization config:
+```c
+camera_config_t config = {
+    .xclk_freq_hz = 20000000,        // 20MHz for OV2640
+    .pixel_format = PIXFORMAT_JPEG,
+    .frame_size = FRAMESIZE_VGA,      // 640x480
+    .jpeg_quality = 12,               // Lower = better quality, bigger frame
+    .fb_count = 2,                    // 2 buffers for continuous mode
+    .fb_location = CAMERA_FB_IN_PSRAM,
+    .grab_mode = CAMERA_GRAB_LATEST,  // Always get latest frame, drop old
+};
+```
+
+### 3.5 Boot Sequence
 
 1. Read NVS configuration (role, WiFi credentials)
 2. Initialize hardware:
@@ -249,7 +293,7 @@ graph TB
 6. Wait for phone TCP connection (video channel)
 7. Ready → LED solid
 
-### 3.5 Device State Machine
+### 3.6 Device State Machine
 
 ```mermaid
 stateDiagram-v2
@@ -276,14 +320,14 @@ stateDiagram-v2
     FLUSHING --> IDLE : Flush complete (LED solid)
 ```
 
-### 3.6 Firmware Components
+### 3.7 Firmware Components
 
 | Component | Description | Interface |
 |-----------|-------------|-----------|
-| `sensor_driver` | BMI270 + AS5600 I2C driver, interrupt-driven | I2C, GPIO |
+| `sensor_driver` | BMI270 + AS5600 on I2C bus 1, timer-notified task (not ISR), retry with bus reset on NAK/timeout | I2C, GPIO |
 | `camera_driver` | OV2640 DVP capture, JPEG output | DVP |
 | `net_manager` | WiFi STA connection, mDNS, reconnect | WiFi |
-| `data_streamer` | TCP video send + UDP sensor send | Socket |
+| `data_streamer` | TCP video send (frame-drop if buffer full) + UDP sensor send | Socket |
 | `sync_protocol` | Clock sync request/response handler | UDP |
 | `power_manager` | Battery ADC, charge detection, low-battery alert | ADC, GPIO |
 | `config_manager` | NVS read/write for device configuration | NVS |

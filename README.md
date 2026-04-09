@@ -66,14 +66,14 @@ All devices stream data in real-time over WiFi to an iOS app. After collection, 
 | Camera | OV2640 | DVP | 640x480 JPEG @ 25fps (configurable up to 30) |
 | IMU | BMI270 | I2C | 6-axis, 200Hz, interrupt-driven |
 | Encoder | AS5600 | I2C | 12-bit magnetic, absolute angle |
-| Battery | 301230 LiPo | JST-PH | ~110mAh, 12-15 min runtime |
+| Battery | 301230 LiPo | JST-PH | ~110mAh, 18-25 min runtime |
 | Charger | TP4056 | Type-C | Li-ion charge management (100mA) |
 
 > The head device uses the same PCB with AS5600 left unpopulated.
 
 ### Mechanical Design
 
-The finger device uses a scissor mechanism: two triangular finger pieces share a single rotation axis. An AS5600 magnetic encoder reads the open/close angle. The rectangular body (~30x25x12mm) houses the PCB, battery, and Type-C port, with the camera module mounted externally.
+The finger device uses a scissor mechanism: two triangular finger pieces share a single rotation axis. An AS5600 magnetic encoder reads the open/close angle. The rectangular body (~34x30x12mm) houses the 4-layer PCB (28x32mm), battery, and Type-C port, with the camera module mounted externally.
 
 ## Software
 
