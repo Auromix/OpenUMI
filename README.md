@@ -180,10 +180,16 @@ This project is in the **design phase**. See [`docs/design/system-design.md`](do
 
 ### Roadmap
 
-- [x] System design & specification
-- [ ] Phase 1: Core pipeline validation (1 device + app prototype on dev board)
-- [ ] Phase 2: Custom hardware (PCB + 3D printed enclosure via JLCPCB)
-- [ ] Phase 3: Three-device integration & field testing
+- [x] Phase 1: System design & specification
+- [ ] Phase 2: Dev board prototype validation (ESP32-S3 dev board + sensor breakouts)
+- [ ] Phase 3: iOS app single-device validation
+- [ ] Phase 4: Offline data pipeline validation (VIO + LeRobot conversion)
+- [ ] Phase 5: Custom PCB design & fabrication (JLCPCB)
+- [ ] Phase 6: Mechanical design & 3D printing (JLCPCB)
+- [ ] Phase 7: Single-device integration test
+- [ ] Phase 8: Three-device joint validation
+- [ ] Phase 9: Data visualization & annotation tools
+- [ ] Phase 10: Model training & robot deployment verification
 
 ## Contributing
 
@@ -202,6 +208,6 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for gui
 This project is licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).
 
 - **Academic and non-commercial use**: Free under the terms of CC BY-NC-SA 4.0
-- **Commercial use**: Requires a separate license. Contact [hermanye@auromix.org](mailto:hermanye@auromix.org) for inquiries.
+- **Commercial use**: Requires a separate license. Contact [hermanye233@icloud.com](mailto:hermanye233@icloud.com) for inquiries.
 
 See [LICENSE](LICENSE) for full details.

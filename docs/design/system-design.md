@@ -754,35 +754,133 @@ graph TD
 
 ## 8. Implementation Phases
 
-### Phase 1: Core Pipeline Validation
+```mermaid
+gantt
+    title OpenUMI Development Roadmap
+    dateFormat YYYY-MM-DD
+    axisFormat %b
 
-**Goal**: End-to-end data flow with one device on a dev board.
+    section Design
+    Phase 1: System Design & Spec           :done, p1, 2026-04-01, 2026-04-09
 
-1. ESP32-S3 dev board + OV2640 camera module
-2. Firmware prototype: WiFi JPEG streaming + IMU + encoder (simulated)
-3. iOS app prototype: single device connection, video preview, data recording
-4. PC script: read session data, run VIO, output pose trajectory
-5. **Validation criteria**: Complete data pipeline from capture to pose output
+    section Software Validation
+    Phase 2: Dev Board Prototype            :p2, after p1, 14d
+    Phase 3: iOS App Single-Device          :p3, after p2, 14d
+    Phase 4: Offline Pipeline (VIO+LeRobot) :p4, after p2, 21d
 
-### Phase 2: Custom Hardware
+    section Custom Hardware
+    Phase 5: PCB Design & Fabrication       :p5, after p4, 21d
+    Phase 6: Mechanical Design & 3D Print   :p6, after p5, 14d
 
-**Goal**: Miniaturized, purpose-built hardware.
+    section Integration
+    Phase 7: Single-Device Integration      :p7, after p6, 7d
+    Phase 8: Three-Device Joint Validation  :p8, after p7, 14d
 
-1. PCB design in KiCad → JLCPCB fabrication + SMT assembly
-2. Mechanical design in FreeCAD → JLCPCB 3D printing
-3. Assembly: PCB + battery + camera + encoder + enclosure
-4. Encoder calibration: angle-to-aperture mapping
-5. **Validation criteria**: Assembled device matches dev board data quality
+    section Ecosystem
+    Phase 9: Data Visualization Tools       :p9, after p8, 21d
+    Phase 10: Model Training & Deployment   :p10, after p8, 28d
+```
 
-### Phase 3: Three-Device Integration
+### Phase 1: System Design & Specification ✅
+
+**Goal**: Complete system architecture and design specification.
+
+- System architecture, component selection, protocol design
+- Data format aligned with UMI/LeRobot ecosystem
+- AI-driven development toolchain selection
+- **Validation criteria**: Design reviewed and approved
+
+### Phase 2: Dev Board Prototype Validation
+
+**Goal**: Validate core electronics and firmware on off-the-shelf dev boards before committing to custom PCB.
+
+1. Assemble dev kit: ESP32-S3 dev board + OV2640 camera module + BMI270 breakout + AS5600 breakout
+2. Firmware prototype: WiFi JPEG streaming (640x480 @ 30fps) + IMU 200Hz + encoder reading
+3. Validate single-device WiFi throughput and stability
+4. **Validation criteria**: Stable 30fps JPEG + 200Hz IMU streaming over WiFi for 15+ minutes
+
+### Phase 3: iOS App Single-Device Validation
+
+**Goal**: Complete iOS app connected to one dev board.
+
+1. Bonjour device discovery + TCP/UDP connection
+2. Live JPEG video preview
+3. Recording control (countdown, timed stop)
+4. Data storage in CSV + JPEG format (matching design spec)
+5. **Validation criteria**: Record a 5-minute session, data files match format spec, export to PC works
+
+### Phase 4: Offline Data Pipeline Validation
+
+**Goal**: End-to-end from raw capture to LeRobot dataset.
+
+1. Run ORB-SLAM3 on captured JPEG + IMU data → 6-DoF trajectory
+2. Encoder angle → gripper width mapping
+3. Assemble UMI-compatible zarr
+4. Convert zarr → LeRobot v3.0 format
+5. Load dataset with `lerobot` Python package, verify structure
+6. **Validation criteria**: Valid LeRobot v3.0 dataset loadable for policy training
+
+### Phase 5: Custom PCB Design & Fabrication
+
+**Goal**: Miniaturized PCB matching dev board functionality.
+
+1. Schematic design in KiCad (ESP32-S3 + BMI270 + AS5600 + TP4056 + OV2640 FPC)
+2. PCB layout (~25x30mm, antenna keepout, I2C routing)
+3. DRC + manufacturing rule check for JLCPCB
+4. Export Gerber + BOM + CPL, order from JLCPCB (PCB + SMT assembly)
+5. **Validation criteria**: Assembled PCB boots, all sensors respond, WiFi connects
+
+### Phase 6: Mechanical Design & 3D Printing
+
+**Goal**: Enclosure and finger mechanism designed around actual PCB.
+
+1. Measure final PCB dimensions
+2. Design in FreeCAD: body shell, scissor finger pieces, camera mount, head strap mount
+3. Export STL, order from JLCPCB 3D printing (SLA resin or MJF nylon)
+4. Test fit, iterate if needed
+5. **Validation criteria**: All components fit, finger mechanism moves freely, comfortable to wear
+
+### Phase 7: Single-Device Integration Test
+
+**Goal**: One fully assembled device (custom PCB + enclosure + battery) performs as well as dev board.
+
+1. Assemble: PCB + battery + camera + encoder magnet + 3D printed enclosure
+2. Flash firmware, configure NVS
+3. Run same test as Phase 2-3 with assembled device
+4. Compare data quality (IMU noise, JPEG quality, WiFi stability) against dev board baseline
+5. **Validation criteria**: No degradation vs dev board; battery lasts 12+ minutes
+
+### Phase 8: Three-Device Joint Validation
 
 **Goal**: Full system with synchronized three-device capture.
 
-1. Three-device simultaneous WiFi streaming
-2. Clock synchronization protocol validation (<500 us)
-3. iOS app: three-camera preview + full recording workflow
-4. Field testing: collect real manipulation demonstrations
-5. **Validation criteria**: Synchronized three-view dataset suitable for policy training
+1. Assemble three devices (2x hand + 1x head)
+2. Three-device simultaneous WiFi streaming to iPhone
+3. Clock synchronization protocol validation (<500 us)
+4. iOS app: three-camera preview + full recording workflow
+5. Field testing: collect real bimanual manipulation demonstrations
+6. Process through full pipeline → LeRobot dataset
+7. **Validation criteria**: Synchronized three-view dataset, all timestamps aligned, suitable for policy training
+
+### Phase 9: Data Visualization & Annotation Tools
+
+**Goal**: Tools for inspecting, browsing, and quality-checking collected data.
+
+1. Web-based session browser (list sessions, preview video, plot IMU/encoder)
+2. 3D trajectory visualization (VIO output)
+3. Data quality metrics (dropped frames, sync drift, coverage)
+4. Episode annotation / tagging interface
+5. **Validation criteria**: Can quickly identify and filter bad episodes from a collection session
+
+### Phase 10: Model Training & Robot Deployment Verification
+
+**Goal**: Close the loop — train a policy on collected data and deploy on a real robot.
+
+1. Train Diffusion Policy / ACT on OpenUMI LeRobot dataset
+2. Deploy policy on robot with parallel-jaw gripper (e.g., UR5e, Franka)
+3. Evaluate task success rate
+4. Compare with UMI-collected data on same task
+5. **Validation criteria**: Trained policy achieves reasonable success rate on target manipulation task
 
 ---
 
