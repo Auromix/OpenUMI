@@ -100,30 +100,16 @@ graph LR
 ## Implementation Roadmap
 
 ```mermaid
-gantt
-    title OpenUMI Development Roadmap
-    dateFormat YYYY-MM-DD
-    axisFormat %b
-
-    section Design
-    Phase 1: System Design & Spec           :done, p1, 2026-04-01, 2026-04-09
-
-    section Software Validation
-    Phase 2: Dev Board Prototype            :p2, after p1, 14d
-    Phase 3: iOS App Single-Device          :p3, after p2, 14d
-    Phase 4: Offline Pipeline (VIO+LeRobot) :p4, after p2, 21d
-
-    section Custom Hardware
-    Phase 5: PCB Design & Fabrication       :p5, after p4, 21d
-    Phase 6: Mechanical Design & 3D Print   :p6, after p5, 14d
-
-    section Integration
-    Phase 7: Single-Device Integration      :p7, after p6, 7d
-    Phase 8: Three-Device Joint Validation  :p8, after p7, 14d
-
-    section Ecosystem
-    Phase 9: Data Visualization Tools       :p9, after p8, 21d
-    Phase 10: Model Training & Deployment   :p10, after p8, 28d
+graph LR
+    P1["Phase 1 - Design ✅"] --> P2["Phase 2 - Dev Board"]
+    P2 --> P3["Phase 3 - iOS App"]
+    P2 --> P4["Phase 4 - VIO Pipeline"]
+    P4 --> P5["Phase 5 - PCB"]
+    P5 --> P6["Phase 6 - Mechanical"]
+    P6 --> P7["Phase 7 - Single Device"]
+    P7 --> P8["Phase 8 - Three Devices"]
+    P8 --> P9["Phase 9 - Visualization"]
+    P8 --> P10["Phase 10 - Training"]
 ```
 
 | Phase | Goal | Validation Criteria |
