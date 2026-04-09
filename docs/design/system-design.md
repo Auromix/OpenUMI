@@ -707,7 +707,7 @@ graph TD
 | Step | Input | Output | Description |
 |------|-------|--------|-------------|
 | 1 | timestamps.csv + metadata.json | Aligned timestamps | Apply clock offsets, convert to seconds from episode start |
-| 2 | camera/*.jpg + imu.csv (per hand) | camera_trajectory.csv | ORB-SLAM3 visual-inertial odometry → 6-DoF camera poses |
+| 2 | camera/*.jpg + imu.csv (per hand) | camera_trajectory.csv | VINS-Fusion visual-inertial odometry (rolling shutter mode) → 6-DoF camera poses |
 | 3 | camera_trajectory.csv + calibration | eef_pos + eef_rot | Hand-eye calibration: camera pose → TCP (tool center point) pose |
 | 4 | encoder.csv + mechanical params | gripper_width (meters) | Encoder angle → gripper width via mechanical geometry |
 | 5 | All above | session_xxx.zarr | Resample all streams to video framerate (25fps), assemble UMI zarr |
@@ -758,12 +758,21 @@ graph TD
 
 ### 6.4 VIO Algorithm
 
-- **Initial**: Offline ORB-SLAM3 (visual-inertial mode)
-  - Uses JPEG sequence + IMU data
+- **Primary**: Offline **VINS-Fusion** (visual-inertial mode, mono + IMU)
+  - **Rolling shutter support**: VINS-Fusion natively models rolling shutter cameras, critical for OV2640 which has ~16-32ms readout time at VGA. This significantly improves tracking accuracy during fast hand movements compared to ORB-SLAM3 (which assumes global shutter).
+  - Uses JPEG sequence + IMU data (IMU CSV in EuRoC-compatible format)
   - IMU integration provides metric scale (absolute meters)
-  - First session builds a 3D map; subsequent sessions relocalize to shared map
-  - Expected accuracy: ~6mm position, ~3.5 degrees rotation (matching UMI results)
+  - Online bias estimation and temporal calibration
+  - Expected accuracy: **8-15mm position** (OV2640 rolling shutter + VINS-Fusion RS model)
+  - Note: UMI achieves 6.1mm with GoPro (also rolling shutter, but with 60fps + EIS). Our setup has lower framerate and no EIS, but VINS-Fusion's RS model partially compensates.
+- **Alternative**: OpenVINS (MSCKF-based, also supports rolling shutter, lighter weight)
 - **Future**: Real-time VIO on iPhone (ARKit or custom), upgrading from Phase C to Phase B
+
+**Operational recommendations for best VIO results**:
+- Use bright, consistent lighting to allow short exposure times (<5ms), reducing motion blur
+- Perform camera + IMU calibration with Kalibr (including temporal offset estimation)
+- Use wide-angle OV2640 lens (120°+) with Kannala-Brandt fisheye model in VINS-Fusion
+- Select adjustable-focus OV2640 module (manual focus ring) to ensure sharpness at manipulation distance (~10-30cm)
 
 ### 6.5 LeRobot Conversion Approach
 
@@ -797,7 +806,7 @@ dataset.push_to_hub()
 ### 6.6 Tools & Dependencies
 
 - **Python 3.10+** for all processing scripts
-- **ORB-SLAM3** for visual-inertial odometry (supports JPEG sequences + IMU CSV natively)
+- **VINS-Fusion** for visual-inertial odometry (rolling shutter support, JPEG sequences + IMU CSV)
 - **OpenCV** for JPEG decoding and calibration
 - **NumPy / Pandas** for data manipulation
 - **zarr** for intermediate UMI format
@@ -993,6 +1002,8 @@ gantt
 |------|----------|------------|------------|
 | WiFi bandwidth insufficient for 3x JPEG streams at default 25fps | High | Medium | Configurable profiles (Safe: 320x240, Hi-Res: 15fps); test early in Phase 2 |
 | OV2640 sustainable framerate <25fps under concurrent WiFi | Medium | Medium | Default 25fps conservative; 30fps profile for ideal conditions only |
+| OV2640 rolling shutter degrades VIO during fast motion | Medium | Medium | VINS-Fusion rolling shutter model compensates; control exposure <5ms with bright lighting; expected 8-15mm accuracy |
+| OV2640 fixed-focus blur at close range (<15cm) | Medium | Medium | Select adjustable-focus OV2640 module with manual focus ring; verify minimum focus distance before ordering |
 | iOS background suspension during recording | Medium | High | Silent audio session + beginBackgroundTask; user warning |
 | mDNS broken on iPhone hotspot (iOS 17+) | ~~Low~~ | ~~Medium~~ | ~~Resolved: mDNS removed as primary.~~ UDP heartbeat broadcast is now primary discovery; BLE fallback |
 | ESP32-S3 dual-core task contention | Medium | Low | Priority-based scheduling; sensor task at highest priority |
@@ -1029,4 +1040,6 @@ gantt
 - [Network.framework Documentation](https://developer.apple.com/documentation/network)
 - [Apple TN3179: Understanding local network privacy](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy)
 - [WWDC25: BGContinuedProcessingTask](https://developer.apple.com/videos/play/wwdc2025/227/)
+- [VINS-Fusion](https://github.com/HKUST-Aerial-Robotics/VINS-Fusion) — Visual-inertial SLAM with rolling shutter support
+- [Kalibr](https://github.com/ethz-asl/kalibr) — Camera-IMU calibration tool
 - [WWDC25: Wi-Fi Aware](https://developer.apple.com/videos/play/wwdc2025/228/)

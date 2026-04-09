@@ -35,7 +35,7 @@ graph TD
     end
 
     subgraph PC["PC Offline Processing"]
-        VIO["ORB-SLAM3 VIO"]
+        VIO["VINS-Fusion VIO"]
         CONV["UMI Zarr Assembly"]
         LR["LeRobot v3.0<br/>Dataset"]
     end
@@ -96,7 +96,7 @@ Single firmware for all three devices, role configured via NVS:
 
 ### Offline Processing (Python)
 
-- VIO pose estimation from JPEG sequences + IMU data (ORB-SLAM3)
+- VIO pose estimation from JPEG sequences + IMU data (VINS-Fusion, rolling shutter support)
 - Encoder angle → gripper width mapping
 - Converts to UMI-compatible zarr → LeRobot v3.0 dataset format
 - Supports `push_to_hub()` to Hugging Face
@@ -113,7 +113,7 @@ graph LR
     end
 
     subgraph PC["💻 PC (Processed)"]
-        SLAM["ORB-SLAM3<br/>VIO"]
+        SLAM["VINS-Fusion<br/>VIO (RS mode)"]
         GRIP["Encoder →<br/>Gripper Width"]
         ZARR["UMI Zarr"]
     end
