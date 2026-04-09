@@ -335,6 +335,13 @@ Heartbeat packet (32 bytes):
 
 The app collects heartbeats, deduplicates by device_role, and establishes TCP/UDP connections to the reported IP addresses.
 
+**iOS permissions for UDP broadcast:**
+
+- App requires `com.apple.developer.networking.multicast` entitlement (request from Apple Developer portal)
+- `NSLocalNetworkUsageDescription` in Info.plist
+- On first launch, app must send a dummy UDP packet to trigger the local network permission dialog (iOS only shows the dialog on send, not receive)
+- Use BSD sockets (not NWConnection) for UDP broadcast receive — Apple's recommendation for broadcast
+
 **Fallback: BLE advertisement**
 
 If UDP broadcast fails (e.g., network isolation), each ESP32 advertises a BLE service with its role and IP address. The iOS app can scan BLE to discover device IPs, then connect via WiFi. BLE is only used for discovery, not data transfer.
@@ -453,11 +460,12 @@ Video frames are timestamped when the DVP VSYNC interrupt fires, then correlated
 
 ### 5.1 Technical Stack
 
-- **UI**: SwiftUI (iOS 16.0+)
-- **Networking**: Network.framework (NWConnection, NWBrowser)
+- **UI**: SwiftUI (iOS 16.0+, built with iOS 26 SDK / Xcode 26)
+- **Networking**: Network.framework (NWConnection for TCP/UDP; BSD sockets for UDP broadcast receive)
 - **Video preview**: UIImage from JPEG data (native, no decode library needed)
 - **Storage**: FileManager + FileHandle (streaming write to Documents)
-- **Development**: Xcode + XcodeBuildMCP + apple-doc-mcp
+- **Entitlements**: `com.apple.developer.networking.multicast` (required for UDP broadcast receive, must request from Apple)
+- **Development**: Xcode 26 + XcodeBuildMCP + apple-doc-mcp
 
 ### 5.2 App Architecture
 
@@ -515,14 +523,16 @@ graph TD
 10. Data saved in app Documents directory
 11. Export to PC via Finder/iTunes file sharing
 
-### 5.5 Background Execution
+### 5.5 Screen & Background Execution
 
-iOS suspends apps when backgrounded. Mitigations:
+iOS 26 tightens background execution enforcement. The silent audio trick (playing inaudible audio to keep the app alive) is no longer reliable and violates App Store guidelines. OpenUMI uses legitimate alternatives:
 
-- Request `beginBackgroundTask` on recording start (~30s buffer)
-- Use `audio` background mode with silent audio session to keep app alive
-- Display recording indicator in status bar
-- Show warning: "Do not switch apps during recording"
+- **Screen always-on during recording**: Set `UIApplication.shared.isIdleTimerDisabled = true` when recording starts, reset on stop. This prevents the screen from locking and keeps the app in foreground.
+- **Brief background tolerance**: Use `BGContinuedProcessingTask` (iOS 26+) if the user briefly switches away. This provides system-managed background execution with progress reporting and user-visible UI.
+- **Fallback**: `beginBackgroundTask` provides ~30 seconds of grace for flushing data if the app is unexpectedly backgrounded.
+- Show warning: "Keep the app in foreground during recording"
+
+> **Note**: The silent audio background mode trick is deliberately NOT used. Apple is actively cracking down on this pattern in iOS 26.
 
 ### 5.6 Data Storage
 
@@ -945,12 +955,23 @@ gantt
 | Battery life too short (<10 min) with 110mAh | Medium | Medium | Optimize WiFi power; reduce camera framerate during idle; consider larger cell |
 | LDO brownout during WiFi TX spikes | Medium | Low | AP2112K (600mA) selected over ME6211 (500mA); add bulk capacitance |
 | TP4056 overcharging small cell | High | Low | PROG resistor = 10kΩ limits charge to ~100mA (~1C for 110mAh); verified in schematic |
+| **iOS 26.4 hotspot IPv4 regression** | **Critical** | **Medium** | ESP32 uses IPv4; iOS 26.4 breaks IPv4 on hotspot WiFi clients. Monitor Apple bug fix; test on latest iOS; long-term: evaluate ESP-IDF IPv6 support |
+| iOS 26 background execution tightening | High | High | ~~Silent audio trick removed.~~ Use `isIdleTimerDisabled` (screen on) + `BGContinuedProcessingTask`. User warned to keep app in foreground |
+| Multicast entitlement required for UDP broadcast | Medium | Low | Must request `com.apple.developer.networking.multicast` from Apple; send dummy packet to trigger permission |
 | 3D-printed enclosure too fragile | Low | Low | Test with MJF nylon; iterate design |
 | OV2640 zero-sized frame bug in esp32-camera | Medium | Low | Pin specific esp-idf + esp32-camera version; thorough testing in Phase 2 |
 
 ---
 
-## 10. References
+## 10. Future Directions
+
+- **Wi-Fi Aware (iOS 26)**: iOS 26 introduced Wi-Fi Aware, enabling direct device-to-device WiFi without a hotspot. This would eliminate the Personal Hotspot dependency entirely. However, ESP32-S3 does not support Wi-Fi Aware (requires specific chipset support). Track [ESP-IDF issue #16743](https://github.com/espressif/esp-idf/issues/16743) for future hardware compatibility. If Espressif adds Wi-Fi Aware support (possibly in ESP32-C6 or future chips), this becomes the ideal connectivity solution.
+- **Real-time VIO on iPhone**: Upgrade from Phase C (offline VIO) to Phase B (real-time VIO on device), potentially leveraging ARKit or custom VIO running on iPhone's neural engine.
+- **ESP-IDF IPv6**: To future-proof against iOS hotspot IPv4 regressions, evaluate ESP-IDF's IPv6 support for dual-stack networking.
+
+---
+
+## 11. References
 
 - [UMI: Universal Manipulation Interface](https://umi-gripper.github.io/) — Design inspiration, SLAM pipeline
 - [Fast-UMI](https://github.com/zxzm-zak/FastUMI_Data) — Hardware pose tracking variant, data format reference
@@ -962,4 +983,6 @@ gantt
 - [BMI270 Datasheet](https://www.bosch-sensortec.com/products/motion-sensors/imus/bmi270/)
 - [AS5600 Datasheet](https://ams.com/en/as5600)
 - [Network.framework Documentation](https://developer.apple.com/documentation/network)
-- [VideoToolbox Documentation](https://developer.apple.com/documentation/videotoolbox)
+- [Apple TN3179: Understanding local network privacy](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy)
+- [WWDC25: BGContinuedProcessingTask](https://developer.apple.com/videos/play/wwdc2025/227/)
+- [WWDC25: Wi-Fi Aware](https://developer.apple.com/videos/play/wwdc2025/228/)
